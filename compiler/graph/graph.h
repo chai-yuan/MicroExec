@@ -57,6 +57,11 @@ class Graph {
     Node *CreateNode(const std::string &op_type, const std::string &name);
     Edge *CreateEdge(const std::string &name);
 
+    const std::vector<Node *> &GetNodes() const { return nodes; }
+    const std::vector<Edge *> &GetEdges() const { return edges; }
+    const std::vector<Edge *> &GetGraphInputs() const { return graph_inputs; }
+    const std::vector<Edge *> &GetGraphOutputs() const { return graph_outputs; }
+
   private:
     class Arena {
       public:
