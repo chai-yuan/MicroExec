@@ -10,18 +10,17 @@
 
 **任务**：
 
-- [ ] 实现 `Graph::InferShapes()` 方法
-- [ ] 为每个 ONNX 算子定义 shape 推断规则（优先覆盖当前测试模型用到的算子）：
-  - `Conv`：根据 input shape、kernel shape、pads、strides、dilations 计算输出 shape
-  - `Relu`：输出 shape = 输入 shape
-  - `MaxPool`：类似 Conv 的输出 shape 计算
-  - `Reshape`：根据 shape 参数推断
-  - `Gemm`：矩阵乘法的输出 shape 规则
-- [ ] 处理动态维度（batch size = -1）的传播策略：
-  - 方案 A：要求用户在编译时指定静态 input shape
-  - 方案 B：传播 Dynamic Bound 标记，内存规划使用上限值
-- [ ] 在 `main.cc` 中将 `InferShapes()` 插入 `BuildFromONNX()` 之后、`BuildFromGraph()` 之前
-- [ ] 验证：Dump 输出中所有中间值的 `size` 字段应为非零值，运行时池大小应为合理值
+- [x] 实现 `Graph::InferShapes()` 方法
+- [x] 为每个 ONNX 算子定义 shape 推断规则（优先覆盖当前测试模型用到的算子）：
+  - [x] `Conv`：根据 input shape、kernel shape、pads、strides、dilations 计算输出 shape
+  - [x] `Relu`：输出 shape = 输入 shape
+  - [x] `MaxPool`：类似 Conv 的输出 shape 计算
+  - [x] `Reshape`：根据 shape 参数推断
+  - [x] `Gemm`：矩阵乘法的输出 shape 规则
+- [x] 处理动态维度（batch size = -1）的传播策略：
+  - [x] 方案 B：传播动态维（使用 `-1` 表示），不在 shape inference 阶段强制静态化
+- [x] 在 `main.cc` 中将 `InferShapes()` 插入 `BuildFromONNX()` 之后、`BuildFromGraph()` 之前
+- [x] 验证：静态中间值应有非零 `size`，动态中间值应输出延迟分配符号（`sym`），运行时池/延迟分配统计应合理
 
 **预计影响文件**：`graph/graph.h`, `graph/graph.cc`（或新建 `graph/shape_inference.cc`）, `main.cc`
 

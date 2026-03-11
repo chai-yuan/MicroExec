@@ -1,8 +1,8 @@
 #ifndef COMPILER_EXECUTION_EXEC_PROGRAM_H
 #define COMPILER_EXECUTION_EXEC_PROGRAM_H
 
-#include <cstdint>
 #include <climits>
+#include <cstdint>
 #include <string>
 #include <vector>
 
@@ -30,6 +30,9 @@ struct ExecValue {
     uint64_t offset      = 0;
     uint64_t size_bytes  = 0;
     bool     mem_planned = false;
+    // 动态张量在编译期无法确定具体字节数，运行时需按符号信息延迟分配
+    bool        deferred_runtime_alloc = false;
+    std::string dynamic_alloc_symbol;
 
     // 常量数据引用（不拥有所有权，指向 Graph IR Edge 的 weight_data）
     const uint8_t *constant_data = nullptr;
@@ -64,8 +67,10 @@ struct MemoryPoolPlan {
 // 全局内存规划结果
 struct MemoryPlan {
     std::vector<MemoryPoolPlan> pools;
-    uint64_t constant_pool_size = 0;
-    uint64_t runtime_pool_size  = 0;
+    uint64_t                    constant_pool_size = 0;
+    uint64_t                    runtime_pool_size  = 0;
+    // 记录需要在运行时延迟分配的值（例如 shape 含 -1 的中间张量）
+    std::vector<uint32_t> deferred_runtime_value_ids;
 };
 
 // 从 Graph IR 降低得到的线性化执行计划

@@ -12,6 +12,9 @@ int main(int argc, const char *argv[]) {
     if (graph.BuildFromONNX(argv[1]) != 0) {
         return -1;
     }
+    if (graph.InferShapes() != 0) {
+        return -1;
+    }
 
     ExecProgram exec;
     if (exec.BuildFromGraph(graph) != 0) {

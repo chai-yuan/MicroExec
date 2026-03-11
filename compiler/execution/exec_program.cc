@@ -4,12 +4,15 @@
 #include "graph/graph.h"
 
 #include <algorithm>
+#include <limits>
 #include <queue>
 #include <unordered_map>
-#include <unordered_set>
 #include <utility>
 
 static constexpr uint64_t kAlignment = 16;
+// 可选优化：为静态中间张量启用生命周期复用（First-Fit）
+// 关闭后仍可正确运行，只是运行时池占用更大。
+static constexpr bool kEnableRuntimeReuseOptimization = true;
 
 static uint64_t AlignUp(uint64_t value, uint64_t alignment) { return (value + alignment - 1) & ~(alignment - 1); }
 
@@ -281,6 +284,8 @@ int ExecProgram::AnalyzeLifetimes() {
 // ============================================================================
 
 int ExecProgram::PlanMemory() {
+    memory_plan_.deferred_runtime_value_ids.clear();
+
     // --- 常量池：顺序排列在 buffer 0 ---
     uint64_t constant_offset = 0;
     for (ExecValue &val : values_) {
@@ -297,64 +302,118 @@ int ExecProgram::PlanMemory() {
     // --- 输入值由外部管理，标记为已规划 ---
     for (ExecValue &val : values_) {
         if (val.kind == ExecValueKind::INPUT) {
+            val.buffer_id              = 1;
+            val.offset                 = 0;
+            val.deferred_runtime_alloc = (val.size_bytes == 0);
+            if (val.deferred_runtime_alloc) {
+                val.dynamic_alloc_symbol = "input:v" + std::to_string(val.id);
+            } else {
+                val.dynamic_alloc_symbol.clear();
+            }
             val.mem_planned = true;
         }
     }
 
-    // --- 中间值：贪心首次适配（Greedy First-Fit）在 buffer 1 ---
-    struct LiveRegion {
-        uint64_t offset;
-        uint64_t size;
-        uint32_t last_use;
-    };
-    std::vector<LiveRegion> live_regions;
-    uint64_t                runtime_pool_size = 0;
+    // =========================================================================
+    // 必须步骤：为中间值生成可执行的内存分配信息
+    // - 静态大小中间值：必须有 buffer_id/offset（供 runtime 直接访问）
+    // - 动态大小中间值：必须记录延迟分配符号（供 runtime 在执行时按 shape 分配）
+    // =========================================================================
+    uint64_t runtime_pool_size = 0;
+    uint64_t runtime_bump_ptr  = 0;
 
     for (ExecValue &val : values_) {
-        if (val.kind != ExecValueKind::INTERMEDIATE || val.size_bytes == 0) {
+        if (val.kind != ExecValueKind::INTERMEDIATE) {
             continue;
         }
 
-        // 收集与当前值生命周期重叠的已分配区域
-        std::vector<std::pair<uint64_t, uint64_t>> occupied;
-        for (const LiveRegion &region : live_regions) {
-            if (region.last_use >= val.first_def) {
-                occupied.emplace_back(region.offset, region.offset + region.size);
-            }
-        }
-        std::sort(occupied.begin(), occupied.end());
-
-        // 首次适配：在已占用区域的间隙中找到第一个足够大的位置
-        uint64_t candidate = 0;
-        for (const auto &[start, end] : occupied) {
-            if (candidate + val.size_bytes <= start) {
-                break;
-            }
-            if (end > candidate) {
-                candidate = AlignUp(end, kAlignment);
-            }
+        val.buffer_id = 1;
+        if (val.size_bytes == 0) {
+            val.offset                 = std::numeric_limits<uint64_t>::max();
+            val.mem_planned            = true;
+            val.deferred_runtime_alloc = true;
+            val.dynamic_alloc_symbol   = "dyn:v" + std::to_string(val.id);
+            memory_plan_.deferred_runtime_value_ids.push_back(val.id);
+            continue;
         }
 
-        val.buffer_id   = 1;
-        val.offset      = candidate;
-        val.mem_planned = true;
-
-        live_regions.push_back({candidate, val.size_bytes, val.last_use});
-
-        uint64_t region_end = candidate + val.size_bytes;
-        if (region_end > runtime_pool_size) {
-            runtime_pool_size = region_end;
+        // 先给静态值一个保守、可运行的默认布局（线性 bump-pointer）。
+        val.offset                 = runtime_bump_ptr;
+        val.mem_planned            = true;
+        val.deferred_runtime_alloc = false;
+        val.dynamic_alloc_symbol.clear();
+        runtime_bump_ptr = AlignUp(runtime_bump_ptr + val.size_bytes, kAlignment);
+        if (runtime_bump_ptr > runtime_pool_size) {
+            runtime_pool_size = runtime_bump_ptr;
         }
     }
 
-    memory_plan_.runtime_pool_size = AlignUp(runtime_pool_size, kAlignment);
+    // =========================================================================
+    // 可选优化步骤：静态中间值内存复用（First-Fit）
+    // - 输入输出语义不变
+    // - 仅减少 runtime_pool_size，不影响正确性
+    // =========================================================================
+    if (kEnableRuntimeReuseOptimization) {
+        runtime_pool_size = 0;
+
+        // --- 中间值：贪心首次适配（Greedy First-Fit）在 buffer 1 ---
+        struct LiveRegion {
+            uint64_t offset;
+            uint64_t size;
+            uint32_t last_use;
+        };
+        std::vector<LiveRegion> live_regions;
+
+        for (ExecValue &val : values_) {
+            if (val.kind != ExecValueKind::INTERMEDIATE || val.size_bytes == 0) {
+                continue;
+            }
+
+            // 收集与当前值生命周期重叠的已分配区域
+            std::vector<std::pair<uint64_t, uint64_t>> occupied;
+            for (const LiveRegion &region : live_regions) {
+                if (region.last_use >= val.first_def) {
+                    occupied.emplace_back(region.offset, region.offset + region.size);
+                }
+            }
+            std::sort(occupied.begin(), occupied.end());
+
+            // 首次适配：在已占用区域的间隙中找到第一个足够大的位置
+            uint64_t candidate = 0;
+            for (const auto &[start, end] : occupied) {
+                if (candidate + val.size_bytes <= start) {
+                    break;
+                }
+                if (end > candidate) {
+                    candidate = AlignUp(end, kAlignment);
+                }
+            }
+
+            val.buffer_id               = 1;
+            val.offset                  = candidate;
+            val.mem_planned             = true;
+            val.deferred_runtime_alloc  = false;
+            val.dynamic_alloc_symbol.clear();
+
+            live_regions.push_back({candidate, val.size_bytes, val.last_use});
+
+            uint64_t region_end = candidate + val.size_bytes;
+            if (region_end > runtime_pool_size) {
+                runtime_pool_size = region_end;
+            }
+        }
+    }
+
+    runtime_pool_size = AlignUp(runtime_pool_size, kAlignment);
+    memory_plan_.runtime_pool_size = runtime_pool_size;
 
     memory_plan_.pools.clear();
     memory_plan_.pools.push_back({0, memory_plan_.constant_pool_size});
     memory_plan_.pools.push_back({1, memory_plan_.runtime_pool_size});
 
-    LOG_INFO("内存规划完成：常量池 %lu 字节，运行时池 %lu 字节", (unsigned long)memory_plan_.constant_pool_size,
-             (unsigned long)memory_plan_.runtime_pool_size);
+    LOG_INFO("内存规划完成：常量池 %lu 字节，运行时池 %lu 字节，动态延迟分配 %zu 个值",
+             (unsigned long)memory_plan_.constant_pool_size, (unsigned long)memory_plan_.runtime_pool_size,
+             memory_plan_.deferred_runtime_value_ids.size());
     return 0;
 }
 
@@ -396,8 +455,14 @@ int ExecProgram::Validate() const {
 
     // 检查中间值的生命周期和内存规划一致性
     for (const ExecValue &val : values_) {
-        if (val.kind == ExecValueKind::INTERMEDIATE && val.size_bytes > 0 && !val.mem_planned) {
+        if (val.kind == ExecValueKind::INTERMEDIATE && !val.mem_planned) {
             LOG_WARN("ExecProgram Validate: 中间值 %u 尚未完成内存规划", val.id);
+        }
+        if (val.kind == ExecValueKind::INTERMEDIATE && val.size_bytes == 0 && !val.deferred_runtime_alloc) {
+            LOG_WARN("ExecProgram Validate: 动态中间值 %u 未标记延迟分配", val.id);
+        }
+        if (val.kind == ExecValueKind::INTERMEDIATE && val.size_bytes == 0 && val.dynamic_alloc_symbol.empty()) {
+            LOG_WARN("ExecProgram Validate: 动态中间值 %u 缺少分配符号", val.id);
         }
         if (val.kind == ExecValueKind::INTERMEDIATE && val.first_def == UINT32_MAX) {
             LOG_WARN("ExecProgram Validate: 中间值 %u 未被任何指令定义", val.id);
@@ -421,9 +486,15 @@ void ExecProgram::Dump() const {
     LOG_INFO("--- Values ---");
     for (const ExecValue &val : values_) {
         const char *edge_name = val.source_edge ? val.source_edge->name.c_str() : "(none)";
-        LOG_INFO("  v%-4u  %-5s  size=%-10lu  life=[%u, %u]  buf=%u off=%-8lu  edge=\"%s\"", val.id,
-                 ExecValueKindStr(val.kind), (unsigned long)val.size_bytes, val.first_def, val.last_use, val.buffer_id,
-                 (unsigned long)val.offset, edge_name);
+        if (val.deferred_runtime_alloc) {
+            LOG_INFO("  v%-4u  %-5s  size=dynamic    life=[%u, %u]  buf=%u off=deferred  sym=\"%s\"  edge=\"%s\"",
+                     val.id, ExecValueKindStr(val.kind), val.first_def, val.last_use, val.buffer_id,
+                     val.dynamic_alloc_symbol.c_str(), edge_name);
+        } else {
+            LOG_INFO("  v%-4u  %-5s  size=%-10lu  life=[%u, %u]  buf=%u off=%-8lu  edge=\"%s\"", val.id,
+                     ExecValueKindStr(val.kind), (unsigned long)val.size_bytes, val.first_def, val.last_use, val.buffer_id,
+                     (unsigned long)val.offset, edge_name);
+        }
     }
 
     LOG_INFO("--- Instructions ---");
@@ -449,5 +520,6 @@ void ExecProgram::Dump() const {
     LOG_INFO("--- Memory Plan ---");
     LOG_INFO("  Constant pool: %lu bytes", (unsigned long)memory_plan_.constant_pool_size);
     LOG_INFO("  Runtime pool:  %lu bytes", (unsigned long)memory_plan_.runtime_pool_size);
+    LOG_INFO("  Deferred runtime values: %zu", memory_plan_.deferred_runtime_value_ids.size());
     LOG_INFO("=== End Dump ===");
 }
