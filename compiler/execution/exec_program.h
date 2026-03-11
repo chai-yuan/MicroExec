@@ -80,16 +80,12 @@ class ExecProgram {
 
     // 主入口：从 Graph IR 构建（含拓扑排序 + 值编号 + 指令生成）
     int BuildFromGraph(const Graph &graph);
-
     // Pass：生命周期分析（标注每个 ExecValue 的 first_def / last_use）
     int AnalyzeLifetimes();
-
     // Pass：内存规划（为常量和中间值分配 buffer_id + offset）
     int PlanMemory();
-
     // 校验一致性
     int Validate() const;
-
     // 调试输出
     void Dump() const;
 

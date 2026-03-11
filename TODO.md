@@ -1,32 +1,16 @@
-# ONNX-C 编译器开发计划
+# MicroExec 编译器与运行时早期开发计划
 
-按推荐优先级排列。每个阶段完成后应可编译运行、通过校验。
-
----
-
-## 阶段 1：Shape Inference（推荐下一步）
-
-**目标**：让所有 Edge 在 Graph IR 阶段就拥有完整的 shape 和 dtype，使 Execution IR 的内存规划真正生效。
-
-**任务**：
-
-- [x] 实现 `Graph::InferShapes()` 方法
-- [x] 为每个 ONNX 算子定义 shape 推断规则（优先覆盖当前测试模型用到的算子）：
-  - [x] `Conv`：根据 input shape、kernel shape、pads、strides、dilations 计算输出 shape
-  - [x] `Relu`：输出 shape = 输入 shape
-  - [x] `MaxPool`：类似 Conv 的输出 shape 计算
-  - [x] `Reshape`：根据 shape 参数推断
-  - [x] `Gemm`：矩阵乘法的输出 shape 规则
-- [x] 处理动态维度（batch size = -1）的传播策略：
-  - [x] 方案 B：传播动态维（使用 `-1` 表示），不在 shape inference 阶段强制静态化
-- [x] 在 `main.cc` 中将 `InferShapes()` 插入 `BuildFromONNX()` 之后、`BuildFromGraph()` 之前
-- [x] 验证：静态中间值应有非零 `size`，动态中间值应输出延迟分配符号（`sym`），运行时池/延迟分配统计应合理
-
-**预计影响文件**：`graph/graph.h`, `graph/graph.cc`（或新建 `graph/shape_inference.cc`）, `main.cc`
+按推荐优先级排列。每个阶段完成后应可编译运行、通过校验，早期开发计划当中优先关注功能实现，暂不考虑性能优化。
 
 ---
 
-## 阶段 2：Execution IR → VM Program 降低
+## 阶段 0：优化设计VM指令码与文件结构
+
+**目标**：优化当前的VM指令码设计，参考Pytorch成熟的指令码设计。
+
+---
+
+## 阶段 1：Execution IR → VM Program 降低
 
 **目标**：实现从 Execution IR 到 VM Program 的完整降低流程。
 
@@ -46,7 +30,7 @@
 
 ---
 
-## 阶段 3：Graph 优化 Pass
+## 阶段 2：Graph 优化 Pass
 
 **目标**：在 Graph IR 层实现基本的优化，减少不必要的计算和内存开销。
 
@@ -61,7 +45,7 @@
 
 ---
 
-## 阶段 4：Execution IR 增强
+## 阶段 3：Execution IR 增强
 
 **目标**：为 Execution IR 补充进阶能力。
 
@@ -78,9 +62,9 @@
 
 ---
 
-## 阶段 5：VM 运行时
+## 阶段 4：VM 运行时
 
-**目标**：实现一个最小可用的 VM 解释器，能够加载编译产物并执行推理。
+**目标**：实现一个最小可用的 VM 解释器，能够加载编译产物并执行推理，为了方便部署于嵌入式环境，这部分使用C语言实现，以C语言代码库的形式分发。
 
 **任务**：
 
@@ -95,16 +79,14 @@
 
 ---
 
-## 阶段 6：测试与工具
+## 阶段 5：测试与工具
 
 **目标**：建立测试基础设施，确保每个阶段的正确性。
 
 **任务**：
 
-- [ ] 单元测试框架集成（如 Google Test 或简单的自制测试宏）
-- [ ] Graph IR 构建和校验的测试用例
-- [ ] Execution IR 各 Pass 的测试用例（拓扑排序、生命周期、内存规划）
 - [ ] 端到端测试：ONNX 模型 → 编译 → VM 执行 → 结果对比
+- [ ] 集成差分测试：编写python脚本，利用onnx官方运行时，运行同一个onnx模型并对比输出
 - [ ] 多模型覆盖：除当前 LeNet 外，增加 ResNet-18、MobileNetV2 等测试模型
 - [ ] IR Dump 的可读性改进（可选：graphviz DOT 输出）
 
@@ -113,5 +95,5 @@
 ## 架构提醒
 
 - 保持三层之间的依赖方向：`Graph IR` → `Execution IR` → `Target IR`
-- `common/type.h` 仍同时包含 graph 和 vm 类型，待阶段 2 完成后考虑拆分
-- 编译器是短生命周期程序，Arena 风格分配仍然适用，但 Execution IR 层当前使用 `std::vector`，这在性能上可接受
+- 类型系统已按层级拆分：`graph_types.h`、`exec_types.h`、`vm_types.h`
+- 编译器是短生命周期程序，Arena 风格分配仍然适用

@@ -14,8 +14,10 @@ static constexpr uint64_t kAlignment = 16;
 // 关闭后仍可正确运行，只是运行时池占用更大。
 static constexpr bool kEnableRuntimeReuseOptimization = true;
 
+// 将值向上对齐到指定的对齐边界
 static uint64_t AlignUp(uint64_t value, uint64_t alignment) { return (value + alignment - 1) & ~(alignment - 1); }
 
+// 返回指定数据类型的字节大小
 static uint64_t DataTypeSize(DataType dtype) {
     switch (dtype) {
     case DataType::FLOAT32:
@@ -37,6 +39,7 @@ static uint64_t DataTypeSize(DataType dtype) {
     }
 }
 
+// 计算张量的总字节数（根据数据类型和形状）
 static uint64_t ComputeTensorBytes(DataType dtype, const std::vector<int64_t> &shape) {
     if (shape.empty() || dtype == DataType::UNKNOWN) {
         return 0;
@@ -52,6 +55,7 @@ static uint64_t ComputeTensorBytes(DataType dtype, const std::vector<int64_t> &s
     return num_elements * elem_size;
 }
 
+// 将 ExecValueKind 枚举值转换为字符串表示
 static const char *ExecValueKindStr(ExecValueKind kind) {
     switch (kind) {
     case ExecValueKind::INPUT:
@@ -65,6 +69,7 @@ static const char *ExecValueKindStr(ExecValueKind kind) {
     }
 }
 
+// 将 ExecOpKind 枚举值转换为字符串表示
 static const char *ExecOpKindStr(ExecOpKind kind) {
     switch (kind) {
     case ExecOpKind::KERNEL:
@@ -80,10 +85,7 @@ static const char *ExecOpKindStr(ExecOpKind kind) {
     }
 }
 
-// ============================================================================
-// BuildFromGraph: 拓扑排序 + 值编号 + 指令生成
-// ============================================================================
-
+// 从计算图构建执行程序：进行拓扑排序、值编号和指令生成
 int ExecProgram::BuildFromGraph(const Graph &graph) {
     const auto &nodes         = graph.GetNodes();
     const auto &edges         = graph.GetEdges();
@@ -229,10 +231,7 @@ int ExecProgram::BuildFromGraph(const Graph &graph) {
     return 0;
 }
 
-// ============================================================================
-// AnalyzeLifetimes: 标注每个 ExecValue 的定义点和最后使用点
-// ============================================================================
-
+// 分析所有 ExecValue 的生命周期：标注定义点和最后使用点
 int ExecProgram::AnalyzeLifetimes() {
     for (ExecValue &val : values_) {
         val.first_def = UINT32_MAX;
@@ -279,10 +278,7 @@ int ExecProgram::AnalyzeLifetimes() {
     return 0;
 }
 
-// ============================================================================
-// PlanMemory: 为常量和中间值分配 buffer_id + offset
-// ============================================================================
-
+// 内存规划：为常量、输入和中间值分配 buffer_id 和 offset，支持内存复用优化
 int ExecProgram::PlanMemory() {
     memory_plan_.deferred_runtime_value_ids.clear();
 
@@ -417,10 +413,7 @@ int ExecProgram::PlanMemory() {
     return 0;
 }
 
-// ============================================================================
-// Validate
-// ============================================================================
-
+// 验证执行程序的完整性和一致性
 int ExecProgram::Validate() const {
     for (const ExecInstr &instr : instructions_) {
         for (uint32_t val_id : instr.input_values) {
@@ -473,10 +466,7 @@ int ExecProgram::Validate() const {
     return 0;
 }
 
-// ============================================================================
-// Dump
-// ============================================================================
-
+// 打印执行程序的详细信息（值、指令、内存规划等）
 void ExecProgram::Dump() const {
     LOG_INFO("=== ExecProgram Dump: \"%s\" ===", name.c_str());
     LOG_INFO("  Values: %zu, Instructions: %zu", values_.size(), instructions_.size());

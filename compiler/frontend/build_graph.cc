@@ -7,6 +7,7 @@
 #include <cstring>
 #include <unordered_map>
 
+// ONNX类型转换为内部DataType
 static DataType OnnxTypeToDataType(int32_t onnx_type) {
     switch (onnx_type) {
     case 1:
@@ -30,6 +31,7 @@ static DataType OnnxTypeToDataType(int32_t onnx_type) {
     }
 }
 
+// 将ONNX ValueInfo的shape和type信息合并到Edge中
 static void MergeShapeAndType(const onnx::ValueInfoProto &value_info, Edge *edge) {
     if (edge == nullptr) {
         return;
@@ -60,6 +62,7 @@ static void MergeShapeAndType(const onnx::ValueInfoProto &value_info, Edge *edge
     }
 }
 
+// 加载ONNX Tensor的原始数据到内存
 static bool LoadTensorRawData(const onnx::TensorProto &tensor, std::vector<uint8_t> *out_data) {
     if (out_data == nullptr) {
         return false;
@@ -101,6 +104,7 @@ static bool LoadTensorRawData(const onnx::TensorProto &tensor, std::vector<uint8
     }
 }
 
+// 解析ONNX AttributeProto并转换为内部Attribute结构
 static Attribute ParseAttribute(const onnx::AttributeProto &onnx_attr) {
     Attribute attr;
     switch (onnx_attr.type()) {
@@ -140,6 +144,7 @@ static Attribute ParseAttribute(const onnx::AttributeProto &onnx_attr) {
     return attr;
 }
 
+// 从ONNX模型文件构建内部图IR表示
 int Graph::BuildFromONNX(const std::string &file_name) {
     LOG_INFO("使用模型文件 %s", file_name.c_str());
 

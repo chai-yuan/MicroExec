@@ -8,6 +8,7 @@
 #include <queue>
 #include <unordered_map>
 
+// 获取节点属性中的整数值，若不存在则返回默认值
 static bool GetAttrInt(const Node *node, const char *name, int64_t default_value, int64_t *out_value) {
     if (out_value == nullptr) {
         return false;
@@ -24,6 +25,7 @@ static bool GetAttrInt(const Node *node, const char *name, int64_t default_value
     return true;
 }
 
+// 获取节点属性中的整数数组
 static bool GetAttrInts(const Node *node, const char *name, std::vector<int64_t> *out_values) {
     if (out_values == nullptr) {
         return false;
@@ -39,6 +41,7 @@ static bool GetAttrInts(const Node *node, const char *name, std::vector<int64_t>
     return true;
 }
 
+// 从常量Tensor中读取shape信息到向量
 static bool ReadShapeTensor(const Edge *shape_edge, std::vector<int64_t> *out_dims) {
     if (shape_edge == nullptr || out_dims == nullptr || !shape_edge->is_constant || shape_edge->weight_data.empty()) {
         return false;
@@ -69,6 +72,7 @@ static bool ReadShapeTensor(const Edge *shape_edge, std::vector<int64_t> *out_di
     return false;
 }
 
+// 推断Conv类算子的输出形状
 static bool InferConvLikeOutput(const std::vector<int64_t> &input_shape, int64_t out_channels,
                                 const std::vector<int64_t> &kernel_spatial_shape, const std::vector<int64_t> &pads,
                                 const std::vector<int64_t> &strides, const std::vector<int64_t> &dilations,
@@ -108,6 +112,7 @@ static bool InferConvLikeOutput(const std::vector<int64_t> &input_shape, int64_t
     return true;
 }
 
+// 推断Reshape算子的输出形状
 static bool InferReshapeOutput(const std::vector<int64_t> &input_shape, const std::vector<int64_t> &target_shape_raw,
                                bool allow_zero, std::vector<int64_t> *out_shape) {
     if (out_shape == nullptr || input_shape.empty() || target_shape_raw.empty()) {
@@ -164,6 +169,7 @@ static bool InferReshapeOutput(const std::vector<int64_t> &input_shape, const st
     return true;
 }
 
+// 推断单个节点的输出形状
 static bool InferNodeShape(Node *node) {
     if (node == nullptr || node->output_edges.empty()) {
         return true;
@@ -322,6 +328,7 @@ static bool InferNodeShape(Node *node) {
     return false;
 }
 
+// 创建新的节点并加入图中
 Node *Graph::CreateNode(const std::string &op_type, const std::string &name) {
     Node *node    = arena.AllocNode();
     node->id      = node_id_counter++;
@@ -331,6 +338,7 @@ Node *Graph::CreateNode(const std::string &op_type, const std::string &name) {
     return node;
 }
 
+// 创建新的边并加入图中
 Edge *Graph::CreateEdge(const std::string &name) {
     Edge *edge            = arena.AllocEdge();
     edge->id              = edge_id_counter++;
@@ -343,6 +351,7 @@ Edge *Graph::CreateEdge(const std::string &name) {
     return edge;
 }
 
+// 对图中所有节点进行拓扑排序并推断形状
 int Graph::InferShapes() {
     std::unordered_map<uint32_t, uint32_t>              in_degree;
     std::unordered_map<uint32_t, std::vector<uint32_t>> successors;
@@ -407,6 +416,7 @@ int Graph::InferShapes() {
     return 0;
 }
 
+// 验证图的合法性（检查空指针、环等）
 int Graph::Validate() const {
     for (size_t i = 0; i < edges.size(); ++i) {
         const Edge *edge = edges[i];
@@ -489,6 +499,7 @@ int Graph::Validate() const {
     return 0;
 }
 
+// 打印图的统计信息摘要
 void Graph::DumpSummary() const {
     size_t constant_count     = 0;
     size_t graph_input_count  = 0;
@@ -525,11 +536,13 @@ void Graph::DumpSummary() const {
              constant_count, graph_input_count, graph_output_count, dtype_known_count, shape_known_count);
 }
 
+// 从内存池分配一个新节点
 Node *Graph::Arena::AllocNode() {
     node_storage.push_back(std::make_unique<Node>());
     return node_storage.back().get();
 }
 
+// 从内存池分配一条新边
 Edge *Graph::Arena::AllocEdge() {
     edge_storage.push_back(std::make_unique<Edge>());
     return edge_storage.back().get();
