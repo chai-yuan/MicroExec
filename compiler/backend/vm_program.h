@@ -13,6 +13,9 @@ class ProgramBuilder {
   public:
     ProgramBuilder();
 
+    // 将 Execution IR 降低为 VM Program 构建数据。
+    int BuildFromExecProgram(const ExecProgram &exec);
+
     // 往各类线格式池中添加数据并返回 32 位索引。
     uint32_t AddString(const std::string &str);
     uint32_t AddIntArray(const std::vector<uint32_t> &arr);
@@ -41,8 +44,5 @@ class ProgramBuilder {
     std::vector<Instruction>      instruction_pool_;
     std::vector<ExecutionPlanData> plan_pool_;
 };
-
-// 将 Execution IR 降低为 VM Program 构建数据。
-int LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder);
 
 #endif // COMPILER_BACKEND_VM_PROGRAM_H

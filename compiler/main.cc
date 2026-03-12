@@ -35,7 +35,7 @@ int main(int argc, const char *argv[]) {
     exec.Dump();
 
     ProgramBuilder builder;
-    if (LowerToVMProgram(exec, builder) != 0) {
+    if (builder.BuildFromExecProgram(exec) != 0) {
         return -1;
     }
     if (builder.Serialize(output_path) != 0) {

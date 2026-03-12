@@ -267,7 +267,7 @@ int ProgramBuilder::Serialize(const std::string &output_file) {
     return 0;
 }
 
-int LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder) {
+int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
     const auto &values = exec.GetValues();
     const auto &instructions = exec.GetInstructions();
     const auto &inputs = exec.GetInputValueIds();
@@ -315,18 +315,18 @@ int LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder) {
         meta.scalar_type = ToVMTensorScalarType(value.dtype);
         meta.shape_dynamism = ToVMTensorShapeDynamism(value);
         meta.ndim = static_cast<uint32_t>(value.shape.size());
-        meta.shape_offset = builder.AddIntArray(shape_u32);
-        meta.dim_order_offset = builder.AddIntArray(dim_order);
+        meta.shape_offset = AddIntArray(shape_u32);
+        meta.dim_order_offset = AddIntArray(dim_order);
         meta.buffer_id = value.buffer_id;
         meta.data_offset = static_cast<uint32_t>(value.offset);
 
-        uint32_t tensor_meta_idx = builder.AddTensorMeta(meta);
+        uint32_t tensor_meta_idx = AddTensorMeta(meta);
 
         EValue evalue{};
         evalue.type = EVALUE_TYPE_TENSOR;
         evalue.payload = tensor_meta_idx;
 
-        uint32_t evalue_idx = builder.AddEValue(evalue);
+        uint32_t evalue_idx = AddEValue(evalue);
         exec_to_evalue_idx[value.id] = evalue_idx;
     }
 
@@ -369,13 +369,13 @@ int LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder) {
 
             vm_instr.input_count = static_cast<uint8_t>(std::min<size_t>(instr.input_values.size(), 255));
             vm_instr.output_count = static_cast<uint8_t>(std::min<size_t>(instr.output_values.size(), 255));
-            vm_instr.arg2 = builder.AddIntArray(args);
+            vm_instr.arg2 = AddIntArray(args);
             vm_instr.arg3 = static_cast<uint32_t>(args.size());
 
             if (instr.op_kind == ExecOpKind::KERNEL) {
                 auto op_it = op_to_idx.find(instr.op_name);
                 if (op_it == op_to_idx.end()) {
-                    uint32_t op_idx = builder.AddOperator(instr.op_name, "");
+                    uint32_t op_idx = AddOperator(instr.op_name, "");
                     op_to_idx[instr.op_name] = op_idx;
                     vm_instr.arg1 = op_idx;
                 } else {
@@ -385,7 +385,7 @@ int LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder) {
                 auto delegate_it = delegate_to_idx.find(instr.delegate_id);
                 if (delegate_it == delegate_to_idx.end()) {
                     std::string backend_id = "delegate_" + std::to_string(instr.delegate_id);
-                    uint32_t delegate_idx = builder.AddDelegate(backend_id, 0, 0);
+                    uint32_t delegate_idx = AddDelegate(backend_id, 0, 0);
                     delegate_to_idx[instr.delegate_id] = delegate_idx;
                     vm_instr.arg1 = delegate_idx;
                 } else {
@@ -417,7 +417,7 @@ int LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder) {
             break;
         }
 
-        builder.AppendInstruction(vm_instr);
+        AppendInstruction(vm_instr);
     }
 
     std::vector<uint32_t> vm_inputs;
@@ -448,6 +448,6 @@ int LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder) {
         return -1;
     }
 
-    builder.BuildExecutionPlan(exec.name, vm_inputs, vm_outputs, static_cast<uint32_t>(runtime_pool_size_u64));
+    BuildExecutionPlan(exec.name, vm_inputs, vm_outputs, static_cast<uint32_t>(runtime_pool_size_u64));
     return 0;
 }
