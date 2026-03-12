@@ -18,7 +18,7 @@ extern "C" {
 
 // 该头文件描述 VM 二进制线格式，只包含 C/C++ 共享的 POD 类型与常量定义。
 static const uint32_t kVMDataAlignment = 4u;
-static const uint32_t kVMFileMagic     = 0x50564D4Du; // "MVMP"
+static const uint32_t kVMFileMagic     = 0x504D564Du; // "MVMP"
 static const uint16_t kVMFileVersionMajor = 1u;
 static const uint16_t kVMFileVersionMinor = 0u;
 
@@ -79,7 +79,7 @@ typedef struct TensorMeta {
     uint32_t shape_offset;     // 维度数组在全局 Int Pool 中的索引
     uint32_t dim_order_offset; // 内存排布数组在全局 Int Pool 中的索引
     uint32_t buffer_id;        // 0 代表常量权重，1~N 代表不同的内存池
-    uint32_t data_offset;      // 在上述 Buffer 中的字节偏移量
+    uint32_t data_offset;      // 在上述 Buffer 中的字节偏移量，动态值使用uint32_t最大值作为“运行时分配”哨兵。
 } TensorMeta;
 
 // 寄存器/变量池实体 (8 字节)

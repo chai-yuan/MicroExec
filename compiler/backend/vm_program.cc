@@ -297,7 +297,7 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
         }
 
         const ExecValue &value = *value_it->second;
-        if (value.offset > std::numeric_limits<uint32_t>::max()) {
+        if (!value.deferred_runtime_alloc && value.offset > std::numeric_limits<uint32_t>::max()) {
             LOG_ERROR("LowerToVM: value %u offset too large: %lu", value.id, (unsigned long)value.offset);
             return -1;
         }
@@ -318,7 +318,9 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
         meta.shape_offset = AddIntArray(shape_u32);
         meta.dim_order_offset = AddIntArray(dim_order);
         meta.buffer_id = value.buffer_id;
-        meta.data_offset = static_cast<uint32_t>(value.offset);
+        // 动态值在编译期不绑定具体地址，使用最大值作为“运行时分配”哨兵。
+        meta.data_offset = value.deferred_runtime_alloc ? std::numeric_limits<uint32_t>::max()
+                                                        : static_cast<uint32_t>(value.offset);
 
         uint32_t tensor_meta_idx = AddTensorMeta(meta);
 
