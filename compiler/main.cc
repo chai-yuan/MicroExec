@@ -1,3 +1,4 @@
+#include "backend/vm_program.h"
 #include "execution/exec_program.h"
 #include "graph/graph.h"
 
@@ -5,8 +6,10 @@
 
 int main(int argc, const char *argv[]) {
     if (argc < 2) {
+        std::fprintf(stderr, "usage: %s <model.onnx> [output.mvmp]\n", argv[0]);
         return -1;
     }
+    const char *output_path = (argc >= 3) ? argv[2] : "build/program.mvmp";
 
     Graph graph;
     if (graph.BuildFromONNX(argv[1]) != 0) {
@@ -30,6 +33,14 @@ int main(int argc, const char *argv[]) {
         return -1;
     }
     exec.Dump();
+
+    ProgramBuilder builder;
+    if (LowerToVMProgram(exec, builder) != 0) {
+        return -1;
+    }
+    if (builder.Serialize(output_path) != 0) {
+        return -1;
+    }
 
     return 0;
 }

@@ -30,7 +30,7 @@
 
 ### 核心数据结构
 
-**Edge**：数据流边，表示张量值。包含 id、name、shape、dtype、权重数据（常量）、producer 指针。
+**Edge**：数据流边，表示张量值。包含 id、name、shape、dtype、权重数据（常量）、producer 指针、consumers 列表。
 
 **Node**：计算节点。包含 id、name、op_type、输入/输出边列表、属性映射。
 
@@ -80,20 +80,47 @@
 
 - Opcode lowering
 - 操作数编码
-- 程序序列化/反序列化（待实现）
+- 程序序列化
+- 输出供独立 VM 运行时消费的线格式数据
+
+#### 4.1 指令码设计
+
+- 指令仍保持 **16 字节固定长度**，便于在嵌入式环境顺序取指
+- 指令头采用 4 字节紧凑布局：
+  - `opcode`（1B）
+  - `flags`（1B）
+  - `input_count`（1B）
+  - `output_count`（1B）
+- 指令体保留 `arg1/arg2/arg3` 三个 `uint32_t` 操作数字段，兼容后续 lowering
+- opcode 集合：`KERNEL_CALL`、`DELEGATE_CALL`、`MOVE_CALL`、`JUMP_FALSE_CALL`、`FREE_CALL`、`NOP_CALL`
+- 约束：除权重外，所有 VM 元数据结构与段布局按 **4 字节对齐**
+- 共享头要求：`common/vm_types.h` 必须仅包含 C / C++ 都可读取的 POD 线格式定义，不依赖编译器内部 C++ 类型
+
+#### 4.2 二进制文件结构
+
+采用“文件头 + 段表 + 数据段”的平坦布局：
+
+1. `VMFileHeader`（64B）
+2. `VMSectionDesc[]`（每项 16B）
+3. 各数据段（字符串池、整型池、张量池、EValue 池、算子池、Delegate 池、指令池、执行计划池、权重段）
+
+每个段通过 `offset + size_bytes + count` 描述，编译器后端只负责生成这些段；加载、解释执行和推理逻辑由独立 runtime 处理。
 
 ### 核心数据结构
 
-**Opcode**：虚拟机指令操作码（KERNEL_CALL、DELEGATE_CALL、MOVE_CALL、JUMP_FALSE_CALL、FREE_CALL）
+**Opcode**：虚拟机指令操作码（KERNEL_CALL、DELEGATE_CALL、MOVE_CALL、JUMP_FALSE_CALL、FREE_CALL、NOP_CALL）
 
-**Instruction**：16 字节指令结构（opcode + arg1 + arg2 + arg3）
+**Instruction**：16 字节指令结构（opcode + flags + in/out 计数 + arg1 + arg2 + arg3）
 
-**Program**：序列化程序容器，包含全局池（string/int/evalue/tensor/operator/instruction）
+**ExecutionPlanData**：单个入口计划的线格式描述，记录输入/输出列表、指令区间和运行时内存池大小
+
+**ProgramBuilder**：编译期构建器，内部维护 string/int/tensor/evalue/operator/delegate/instruction/plan 各类池，并负责统一序列化输出
 
 ### 当前实现
 
-- VM 类型定义：`common/vm_types.h`
-- Program/ProgramBuilder 声明：`backend/vm_program.h`
+- VM 类型定义 + 文件格式定义：`common/vm_types.h`
+- 后端仅保留 `ProgramBuilder` 与 `LowerToVMProgram()`，负责 lowering 与序列化：`backend/vm_program.h`、`backend/vm_program.cc`
+- 编译器主流程不再回读 VM 文件，避免将推理期职责混入后端
 
 ---
 
@@ -105,7 +132,7 @@
 |------|------|------|
 | `common/graph_types.h` | Graph | DataType, ShapeDynamism, AttributeKind |
 | `common/exec_types.h` | Execution | ExecValueKind, ExecOpKind |
-| `common/vm_types.h` | VM | Opcode, Instruction, TensorMeta, EValue |
+| `common/vm_types.h` | VM | C / C++ 共享线格式：Opcode, Instruction, TensorMeta, EValue, ExecutionPlanData, VMFileHeader, VMSectionDesc |
 
 `common/type.h` 作为统一包含入口。
 
@@ -115,5 +142,5 @@
 
 1. **动态 Shape**：含动态维度（-1）的中间张量需运行时延迟分配
 2. **线性指令流**：不支持 ExecutionBlock（基本块）
-3. **无 Delegate 支持**：ExecOpKind::DELEGATE 已定义但未使用
+3. **Delegate 仅占位支持**：已完成编码与指令降级映射，但尚未接入真实后端 blob
 4. **单内存池**：所有中间值共享一个运行时池

@@ -6,7 +6,14 @@
 
 ## 阶段 0：优化设计VM指令码与文件结构
 
-**目标**：优化当前的VM指令码设计，参考Pytorch成熟的指令码设计。
+**目标**：优化当前的VM指令码设计，参考Pytorch成熟的指令码设计。VM指令码主要运行于带有低功耗NPU的嵌入式环境，除储存的权重等数据以外，应追求整齐的4字节对齐设计
+
+- [x] 指令头改为紧凑 4 字节（`opcode/flags/input_count/output_count`），并保持整条指令 16 字节
+- [x] 增补 `NOP_CALL` 与指令 flags 语义，为 debug/profile 与后续扩展预留编码位
+- [x] 建立 VM 二进制文件布局（`VMFileHeader + VMSectionDesc + SectionData`）
+- [x] 统一约束 VM 元数据结构 4 字节对齐，并用 `static_assert` 做编译期校验
+- [x] 将 VM 线格式定义收敛到 `common/vm_types.h`，补齐 `ExecutionPlanData`，并改造成可被 C / C++ 共同包含的共享头
+- [x] 同步 `DESIGN.md` 的 Target IR 设计说明，明确阶段0编码和文件结构规范
 
 ---
 
@@ -16,17 +23,18 @@
 
 **任务**：
 
-- [ ] 实现 `ProgramBuilder` 的所有方法（`AddString`, `AddTensorMeta`, `AddEValue`, `AddOperator`, `AppendInstruction`, `BuildExecutionPlan`）
-- [ ] 实现降低函数 `LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder)`：
+- [x] 实现 `ProgramBuilder` 的所有方法（`AddString`, `AddTensorMeta`, `AddEValue`, `AddOperator`, `AppendInstruction`, `BuildExecutionPlan`）
+- [x] 实现降低函数 `LowerToVMProgram(const ExecProgram &exec, ProgramBuilder &builder)`：
   - 遍历 ExecProgram 的 values，为每个值创建对应的 `EValue` 和 `TensorMeta`
   - 遍历 ExecProgram 的 instructions，将每条 `ExecInstr` 降低为一条或多条 VM `Instruction`
   - `ExecOpKind::KERNEL` → `Opcode::KERNEL_CALL`
   - `ExecOpKind::DELEGATE` → `Opcode::DELEGATE_CALL`
   - 生成参数列表（args_list）放入 int_pool
   - 创建 `ExecutionPlanData`
-- [ ] 实现 `ProgramBuilder::Serialize()` 将 Program 导出为二进制文件
+- [x] 实现 `ProgramBuilder::Serialize()` 将 Program 导出为二进制文件
+- [x] 移除编译器后端中仅供 VM 推理期使用的回读/查询逻辑，保留生成与序列化职责
 
-**预计影响文件**：`backend/vm_program.h`, 新建 `backend/vm_program.cc`, 新建 `backend/lower_to_vm.cc`, `main.cc`
+**预计影响文件**：`backend/vm_program.h`, `backend/vm_program.cc`, `main.cc`
 
 ---
 
@@ -64,16 +72,16 @@
 
 ## 阶段 4：VM 运行时
 
-**目标**：实现一个最小可用的 VM 解释器，能够加载编译产物并执行推理，为了方便部署于嵌入式环境，这部分使用C语言实现，以C语言代码库的形式分发。
+**目标**：实现一个最小可用的 VM 解释器，能够加载编译产物并执行推理，为了方便部署于嵌入式环境，这部分使用纯粹C语言实现，以C语言代码库的形式分发。
 
 **任务**：
 
-- [ ] 实现 `Program::LoadFromFile()` 反序列化
-- [ ] 实现 `ExecutionPlan` 执行引擎
 - [ ] 实现基本算子 kernel（Conv, Relu, MaxPool, Gemm, Reshape）
 - [ ] 内存池的运行时分配与管理
 - [ ] 输入/输出数据的绑定接口
 - [ ] 基本的错误处理与边界检查
+
+**说明**：运行时与编译器后端解耦，优先复用 `common/vm_types.h` 中的共享线格式定义。
 
 **预计影响文件**：新建 `runtime/` 目录
 

@@ -11,12 +11,14 @@ TARGET_ARGS ?=
 SRCS := $(wildcard $(SRC_DIR)/*.cc) \
         $(wildcard $(SRC_DIR)/frontend/*.cc) \
         $(wildcard $(SRC_DIR)/graph/*.cc) \
-        $(wildcard $(SRC_DIR)/execution/*.cc)
+        $(wildcard $(SRC_DIR)/execution/*.cc) \
+        $(wildcard $(SRC_DIR)/backend/*.cc)
 
 HEADERS := $(wildcard $(SRC_DIR)/*.h) \
            $(wildcard $(SRC_DIR)/frontend/*.h) \
            $(wildcard $(SRC_DIR)/graph/*.h) \
-           $(wildcard $(SRC_DIR)/execution/*.h)
+           $(wildcard $(SRC_DIR)/execution/*.h) \
+           $(wildcard $(SRC_DIR)/backend/*.h)
 
 OBJS := $(patsubst %.cc,$(BUILD_DIR)/%.o,$(SRCS))
 DEPS := $(OBJS:.o=.d)
