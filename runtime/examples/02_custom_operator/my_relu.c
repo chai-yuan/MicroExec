@@ -19,7 +19,7 @@ MeStatus my_fast_relu(MeOpContext *ctx) {
     MeTensor in  = ctx->inputs[0];
     MeTensor out = ctx->outputs[0];
 
-    size_t n = me_tensor_nbytes(in) / sizeof(float);
+    size_t       n   = me_tensor_nbytes(in) / sizeof(float);
     const float *src = (const float *)me_tensor_data(in);
     float       *dst = (float *)me_tensor_data(out);
 

@@ -8,7 +8,8 @@ MeStatus me_op_soft_reshape(MeOpContext *ctx) {
 
     MeTensor in  = ctx->inputs[0];
     MeTensor out = ctx->outputs[0];
-    if (!in || !out) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+    if (!in || !out)
+        return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     if (me_tensor_nbytes(in) != me_tensor_nbytes(out))
         return ME_STATUS_ERROR_SHAPE_MISMATCH;

@@ -29,17 +29,15 @@ void me_default_alloc_init(MeAllocator *alloc);
 
 /* ---- Convenience Wrappers --------------------------------------------- */
 
-static inline void *me_alloc(MeAllocator *a, size_t size) {
-    return a->alloc(a->ctx, size, sizeof(void *));
-}
+static inline void *me_alloc(MeAllocator *a, size_t size) { return a->alloc(a->ctx, size, sizeof(void *)); }
 
-static inline void *me_alloc_aligned(MeAllocator *a, size_t size,
-                                     size_t alignment) {
+static inline void *me_alloc_aligned(MeAllocator *a, size_t size, size_t alignment) {
     return a->alloc(a->ctx, size, alignment);
 }
 
 static inline void me_free(MeAllocator *a, void *ptr) {
-    if (ptr) a->free(a->ctx, ptr);
+    if (ptr)
+        a->free(a->ctx, ptr);
 }
 
 /* ---- Arena (Bump Allocator) ------------------------------------------- */
@@ -70,9 +68,7 @@ void *me_arena_alloc(MeArena *arena, size_t size, size_t alignment);
 void me_arena_reset(MeArena *arena);
 
 /** Return the number of bytes currently in use. */
-static inline size_t me_arena_used(const MeArena *arena) {
-    return arena->offset;
-}
+static inline size_t me_arena_used(const MeArena *arena) { return arena->offset; }
 
 /* ---- Block Pool (Fixed-size Free-list) -------------------------------- */
 
@@ -85,8 +81,7 @@ typedef struct MeBlockPool {
     MeAllocator *parent;
 } MeBlockPool;
 
-MeStatus me_block_pool_init(MeBlockPool *pool, MeAllocator *parent,
-                            size_t block_size, uint32_t block_count);
+MeStatus me_block_pool_init(MeBlockPool *pool, MeAllocator *parent, size_t block_size, uint32_t block_count);
 void     me_block_pool_destroy(MeBlockPool *pool);
 void    *me_block_pool_alloc(MeBlockPool *pool);
 void     me_block_pool_free(MeBlockPool *pool, void *ptr);

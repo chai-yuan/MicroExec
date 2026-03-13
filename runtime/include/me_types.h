@@ -34,14 +34,22 @@ typedef enum MeScalarType {
 /** 获取标量类型的字节宽度（未知类型返回 0） */
 static inline size_t me_scalar_type_size(MeScalarType dtype) {
     switch (dtype) {
-    case ME_SCALAR_FLOAT32: return 4;
-    case ME_SCALAR_FLOAT16: return 2;
-    case ME_SCALAR_INT64:   return 8;
-    case ME_SCALAR_INT32:   return 4;
-    case ME_SCALAR_INT8:    return 1;
-    case ME_SCALAR_UINT8:   return 1;
-    case ME_SCALAR_BOOL:    return 1;
-    default:                return 0;
+    case ME_SCALAR_FLOAT32:
+        return 4;
+    case ME_SCALAR_FLOAT16:
+        return 2;
+    case ME_SCALAR_INT64:
+        return 8;
+    case ME_SCALAR_INT32:
+        return 4;
+    case ME_SCALAR_INT8:
+        return 1;
+    case ME_SCALAR_UINT8:
+        return 1;
+    case ME_SCALAR_BOOL:
+        return 1;
+    default:
+        return 0;
     }
 }
 
@@ -50,8 +58,8 @@ static inline size_t me_scalar_type_size(MeScalarType dtype) {
 /** 分配器接口（用户可在创建运行时传入自定义分配器） */
 typedef struct MeAllocator {
     void *(*alloc)(void *ctx, size_t size, size_t alignment);
-    void  (*free)(void *ctx, void *ptr);
-    void  *ctx;
+    void (*free)(void *ctx, void *ptr);
+    void *ctx;
 } MeAllocator;
 
 /* ---- Runtime Configuration -------------------------------------------- */

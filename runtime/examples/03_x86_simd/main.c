@@ -34,7 +34,7 @@ int main(int argc, char *argv[]) {
 
     /* Load model */
     MeProgram prog = NULL;
-    s = me_program_load_file(rt, argv[1], &prog);
+    s              = me_program_load_file(rt, argv[1], &prog);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "program_load: %s\n", me_status_str(s));
         me_runtime_destroy(rt);
@@ -42,8 +42,8 @@ int main(int argc, char *argv[]) {
     }
 
     /* Create dummy input and execute */
-    int32_t shape[] = {1, 1, 28, 28};
-    MeTensor input = NULL;
+    int32_t  shape[] = {1, 1, 28, 28};
+    MeTensor input   = NULL;
     me_tensor_create(rt, ME_SCALAR_FLOAT32, shape, 4, &input);
 
     me_program_set_input(prog, 0, input);

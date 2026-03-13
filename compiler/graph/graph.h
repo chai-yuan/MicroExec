@@ -32,7 +32,7 @@ class Edge {
     std::vector<uint8_t> weight_data; // 如果是常量，存储权重数据
 
     Node               *producer = nullptr; // 谁生产了这个数据（为空表示是图的全局输入或常量）
-    std::vector<Node *> consumers;           // 谁在使用这个数据
+    std::vector<Node *> consumers;          // 谁在使用这个数据
 };
 
 class Node {

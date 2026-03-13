@@ -25,8 +25,7 @@ static uint32_t AlignUpU32(uint32_t value, uint32_t alignment) {
 }
 
 // 将 POD 类型的 vector 转换为字节序列并追加到输出缓冲区。
-template <typename T>
-static void AppendPodVectorAsBytes(const std::vector<T> &items, std::vector<uint8_t> &out) {
+template <typename T> static void AppendPodVectorAsBytes(const std::vector<T> &items, std::vector<uint8_t> &out) {
     if (items.empty()) {
         return;
     }
@@ -38,7 +37,7 @@ static void AppendPodVectorAsBytes(const std::vector<T> &items, std::vector<uint
 static std::vector<uint8_t> BuildStringSection(const std::vector<std::string> &pool) {
     std::vector<uint8_t> out;
     for (const std::string &item : pool) {
-        uint32_t len = static_cast<uint32_t>(item.size());
+        uint32_t       len       = static_cast<uint32_t>(item.size());
         const uint8_t *len_bytes = reinterpret_cast<const uint8_t *>(&len);
         out.insert(out.end(), len_bytes, len_bytes + sizeof(uint32_t));
         out.insert(out.end(), item.begin(), item.end());
@@ -177,11 +176,11 @@ void ProgramBuilder::BuildExecutionPlan(const std::string &name, const std::vect
     uint32_t instruction_begin = 0;
     if (!plan_pool_.empty()) {
         const ExecutionPlanData &last_plan = plan_pool_.back();
-        instruction_begin = last_plan.instructions_offset + last_plan.instructions_count;
+        instruction_begin                  = last_plan.instructions_offset + last_plan.instructions_count;
     }
     plan.instructions_offset = instruction_begin;
-    plan.instructions_count = static_cast<uint32_t>(instruction_pool_.size()) - instruction_begin;
-    plan.memory_pool_size = memory_pool_size;
+    plan.instructions_count  = static_cast<uint32_t>(instruction_pool_.size()) - instruction_begin;
+    plan.memory_pool_size    = memory_pool_size;
 
     plan_pool_.push_back(plan);
 }
@@ -189,9 +188,9 @@ void ProgramBuilder::BuildExecutionPlan(const std::string &name, const std::vect
 // 将所有构建的数据序列化为 VM 二进制文件。
 int ProgramBuilder::Serialize(const std::string &output_file) {
     struct SectionPayload {
-        VMSectionKind kind;
+        VMSectionKind        kind;
         std::vector<uint8_t> bytes;
-        uint32_t count;
+        uint32_t             count;
     };
 
     std::vector<SectionPayload> sections;
@@ -231,30 +230,30 @@ int ProgramBuilder::Serialize(const std::string &output_file) {
     sections.push_back({VM_SECTION_WEIGHTS, weight_pool_, weight_tensor_count_});
 
     std::vector<VMSectionDesc> section_descs(sections.size());
-    uint32_t section_table_ofs = sizeof(VMFileHeader);
-    uint32_t data_ofs =
-        AlignUpU32(section_table_ofs + static_cast<uint32_t>(sections.size() * sizeof(VMSectionDesc)), kVMDataAlignment);
+    uint32_t                   section_table_ofs = sizeof(VMFileHeader);
+    uint32_t data_ofs = AlignUpU32(section_table_ofs + static_cast<uint32_t>(sections.size() * sizeof(VMSectionDesc)),
+                                   kVMDataAlignment);
 
     for (size_t i = 0; i < sections.size(); ++i) {
         VMSectionDesc desc{};
-        desc.kind = static_cast<uint32_t>(sections[i].kind);
-        desc.offset = data_ofs;
-        desc.size_bytes = static_cast<uint32_t>(sections[i].bytes.size());
-        desc.count = sections[i].count;
+        desc.kind        = static_cast<uint32_t>(sections[i].kind);
+        desc.offset      = data_ofs;
+        desc.size_bytes  = static_cast<uint32_t>(sections[i].bytes.size());
+        desc.count       = sections[i].count;
         section_descs[i] = desc;
-        data_ofs = AlignUpU32(data_ofs + desc.size_bytes, kVMDataAlignment);
+        data_ofs         = AlignUpU32(data_ofs + desc.size_bytes, kVMDataAlignment);
     }
 
     VMFileHeader header{};
-    header.magic = kVMFileMagic;
-    header.version_major = kVMFileVersionMajor;
-    header.version_minor = kVMFileVersionMinor;
-    header.header_size = sizeof(VMFileHeader);
-    header.file_size = data_ofs;
-    header.section_count = static_cast<uint32_t>(section_descs.size());
+    header.magic             = kVMFileMagic;
+    header.version_major     = kVMFileVersionMajor;
+    header.version_minor     = kVMFileVersionMinor;
+    header.header_size       = sizeof(VMFileHeader);
+    header.file_size         = data_ofs;
+    header.section_count     = static_cast<uint32_t>(section_descs.size());
     header.section_table_ofs = section_table_ofs;
-    header.entry_plan_idx = 0;
-    header.flags = 0;
+    header.entry_plan_idx    = 0;
+    header.flags             = 0;
 
     std::vector<uint8_t> file_bytes(header.file_size, 0);
     std::memcpy(file_bytes.data(), &header, sizeof(header));
@@ -299,10 +298,10 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
     instruction_pool_.clear();
     plan_pool_.clear();
 
-    const auto &values = exec.GetValues();
+    const auto &values       = exec.GetValues();
     const auto &instructions = exec.GetInstructions();
-    const auto &inputs = exec.GetInputValueIds();
-    const auto &outputs = exec.GetOutputValueIds();
+    const auto &inputs       = exec.GetInputValueIds();
+    const auto &outputs      = exec.GetOutputValueIds();
 
     std::vector<uint32_t> exec_value_ids;
     exec_value_ids.reserve(values.size());
@@ -379,23 +378,23 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
         }
 
         TensorMeta meta{};
-        meta.scalar_type = ToVMTensorScalarType(value.dtype);
-        meta.shape_dynamism = ToVMTensorShapeDynamism(value);
-        meta.ndim = static_cast<uint32_t>(value.shape.size());
-        meta.shape_offset = AddIntArray(shape_u32);
+        meta.scalar_type      = ToVMTensorScalarType(value.dtype);
+        meta.shape_dynamism   = ToVMTensorShapeDynamism(value);
+        meta.ndim             = static_cast<uint32_t>(value.shape.size());
+        meta.shape_offset     = AddIntArray(shape_u32);
         meta.dim_order_offset = AddIntArray(dim_order);
-        meta.buffer_id = value.buffer_id;
+        meta.buffer_id        = value.buffer_id;
         // 动态值在编译期不绑定具体地址，使用最大值作为“运行时分配”哨兵。
-        meta.data_offset = value.deferred_runtime_alloc ? std::numeric_limits<uint32_t>::max()
-                                                        : static_cast<uint32_t>(value.offset);
+        meta.data_offset =
+            value.deferred_runtime_alloc ? std::numeric_limits<uint32_t>::max() : static_cast<uint32_t>(value.offset);
 
         uint32_t tensor_meta_idx = AddTensorMeta(meta);
 
         EValue evalue{};
-        evalue.type = EVALUE_TYPE_TENSOR;
+        evalue.type    = EVALUE_TYPE_TENSOR;
         evalue.payload = tensor_meta_idx;
 
-        uint32_t evalue_idx = AddEValue(evalue);
+        uint32_t evalue_idx          = AddEValue(evalue);
         exec_to_evalue_idx[value.id] = evalue_idx;
     }
 
@@ -407,10 +406,10 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
     for (const ExecInstr &instr : instructions) {
         Instruction vm_instr{};
         vm_instr.opcode = ToOpcode(instr.op_kind);
-        vm_instr.flags = INSTR_FLAG_NONE;
-        vm_instr.arg1 = 0;
-        vm_instr.arg2 = 0;
-        vm_instr.arg3 = 0;
+        vm_instr.flags  = INSTR_FLAG_NONE;
+        vm_instr.arg1   = 0;
+        vm_instr.arg2   = 0;
+        vm_instr.arg3   = 0;
 
         switch (instr.op_kind) {
         case ExecOpKind::KERNEL:
@@ -436,27 +435,27 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
                 args.push_back(value_it->second);
             }
 
-            vm_instr.input_count = static_cast<uint8_t>(std::min<size_t>(instr.input_values.size(), 255));
+            vm_instr.input_count  = static_cast<uint8_t>(std::min<size_t>(instr.input_values.size(), 255));
             vm_instr.output_count = static_cast<uint8_t>(std::min<size_t>(instr.output_values.size(), 255));
-            vm_instr.arg2 = AddIntArray(args);
-            vm_instr.arg3 = static_cast<uint32_t>(args.size());
+            vm_instr.arg2         = AddIntArray(args);
+            vm_instr.arg3         = static_cast<uint32_t>(args.size());
 
             if (instr.op_kind == ExecOpKind::KERNEL) {
                 auto op_it = op_to_idx.find(instr.op_name);
                 if (op_it == op_to_idx.end()) {
-                    uint32_t op_idx = AddOperator(instr.op_name, "");
+                    uint32_t op_idx          = AddOperator(instr.op_name, "");
                     op_to_idx[instr.op_name] = op_idx;
-                    vm_instr.arg1 = op_idx;
+                    vm_instr.arg1            = op_idx;
                 } else {
                     vm_instr.arg1 = op_it->second;
                 }
             } else {
                 auto delegate_it = delegate_to_idx.find(instr.delegate_id);
                 if (delegate_it == delegate_to_idx.end()) {
-                    std::string backend_id = "delegate_" + std::to_string(instr.delegate_id);
-                    uint32_t delegate_idx = AddDelegate(backend_id, 0, 0);
+                    std::string backend_id             = "delegate_" + std::to_string(instr.delegate_id);
+                    uint32_t    delegate_idx           = AddDelegate(backend_id, 0, 0);
                     delegate_to_idx[instr.delegate_id] = delegate_idx;
-                    vm_instr.arg1 = delegate_idx;
+                    vm_instr.arg1                      = delegate_idx;
                 } else {
                     vm_instr.arg1 = delegate_it->second;
                 }
@@ -464,7 +463,7 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
             break;
         }
         case ExecOpKind::MOVE:
-            vm_instr.input_count = 1;
+            vm_instr.input_count  = 1;
             vm_instr.output_count = 1;
             if (!instr.input_values.empty()) {
                 auto input_it = exec_to_evalue_idx.find(instr.input_values[0]);
@@ -481,7 +480,7 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
             break;
         case ExecOpKind::NOP:
         default:
-            vm_instr.input_count = 0;
+            vm_instr.input_count  = 0;
             vm_instr.output_count = 0;
             break;
         }

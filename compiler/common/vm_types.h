@@ -17,63 +17,63 @@ extern "C" {
 #endif
 
 // 该头文件描述 VM 二进制线格式，只包含 C/C++ 共享的 POD 类型与常量定义。
-static const uint32_t kVMDataAlignment = 4u;
-static const uint32_t kVMFileMagic     = 0x504D564Du; // "MVMP"
+static const uint32_t kVMDataAlignment    = 4u;
+static const uint32_t kVMFileMagic        = 0x504D564Du; // "MVMP"
 static const uint16_t kVMFileVersionMajor = 1u;
 static const uint16_t kVMFileVersionMinor = 0u;
 
 typedef enum VMEValueType {
-    EVALUE_TYPE_NONE = 0,
-    EVALUE_TYPE_TENSOR = 1,
-    EVALUE_TYPE_INT = 2,
-    EVALUE_TYPE_DOUBLE = 3,
-    EVALUE_TYPE_BOOL = 4,
-    EVALUE_TYPE_STRING = 5,
+    EVALUE_TYPE_NONE        = 0,
+    EVALUE_TYPE_TENSOR      = 1,
+    EVALUE_TYPE_INT         = 2,
+    EVALUE_TYPE_DOUBLE      = 3,
+    EVALUE_TYPE_BOOL        = 4,
+    EVALUE_TYPE_STRING      = 5,
     EVALUE_TYPE_TENSOR_LIST = 6
 } EValueType;
 
 typedef enum VMOpcode {
-    OPCODE_KERNEL_CALL = 0, // 调用标准算子
-    OPCODE_DELEGATE_CALL = 1, // 调用 NPU/DSP 等硬件后端
-    OPCODE_MOVE_CALL = 2, // 数据移动
+    OPCODE_KERNEL_CALL     = 0, // 调用标准算子
+    OPCODE_DELEGATE_CALL   = 1, // 调用 NPU/DSP 等硬件后端
+    OPCODE_MOVE_CALL       = 2, // 数据移动
     OPCODE_JUMP_FALSE_CALL = 3, // 条件分支跳转
-    OPCODE_FREE_CALL = 4, // 释放内存复用
-    OPCODE_NOP_CALL = 5 // 空操作（调试/Profile 占位）
+    OPCODE_FREE_CALL       = 4, // 释放内存复用
+    OPCODE_NOP_CALL        = 5  // 空操作（调试/Profile 占位）
 } Opcode;
 
 typedef enum VMInstructionFlags {
-    INSTR_FLAG_NONE = 0,
+    INSTR_FLAG_NONE            = 0,
     INSTR_FLAG_HAS_IMM_PAYLOAD = 1u << 0, // arg3 指向立即数池偏移
-    INSTR_FLAG_INPLACE = 1u << 1, // 可原地执行
-    INSTR_FLAG_RESERVED2 = 1u << 2,
-    INSTR_FLAG_RESERVED3 = 1u << 3,
-    INSTR_FLAG_RESERVED4 = 1u << 4,
-    INSTR_FLAG_RESERVED5 = 1u << 5,
-    INSTR_FLAG_RESERVED6 = 1u << 6,
-    INSTR_FLAG_RESERVED7 = 1u << 7
+    INSTR_FLAG_INPLACE         = 1u << 1, // 可原地执行
+    INSTR_FLAG_RESERVED2       = 1u << 2,
+    INSTR_FLAG_RESERVED3       = 1u << 3,
+    INSTR_FLAG_RESERVED4       = 1u << 4,
+    INSTR_FLAG_RESERVED5       = 1u << 5,
+    INSTR_FLAG_RESERVED6       = 1u << 6,
+    INSTR_FLAG_RESERVED7       = 1u << 7
 } InstructionFlags;
 
 typedef enum VMTensorScalarType {
     VM_TENSOR_SCALAR_UNKNOWN = 0,
     VM_TENSOR_SCALAR_FLOAT32 = 1,
     VM_TENSOR_SCALAR_FLOAT16 = 2,
-    VM_TENSOR_SCALAR_INT64 = 3,
-    VM_TENSOR_SCALAR_INT32 = 4,
-    VM_TENSOR_SCALAR_INT8 = 5,
-    VM_TENSOR_SCALAR_UINT8 = 6,
-    VM_TENSOR_SCALAR_BOOL = 7,
-    VM_TENSOR_SCALAR_STRING = 8
+    VM_TENSOR_SCALAR_INT64   = 3,
+    VM_TENSOR_SCALAR_INT32   = 4,
+    VM_TENSOR_SCALAR_INT8    = 5,
+    VM_TENSOR_SCALAR_UINT8   = 6,
+    VM_TENSOR_SCALAR_BOOL    = 7,
+    VM_TENSOR_SCALAR_STRING  = 8
 } VMTensorScalarType;
 
 typedef enum VMTensorShapeDynamism {
-    VM_TENSOR_SHAPE_STATIC = 0,
-    VM_TENSOR_SHAPE_DYNAMIC_BOUND = 1,
+    VM_TENSOR_SHAPE_STATIC          = 0,
+    VM_TENSOR_SHAPE_DYNAMIC_BOUND   = 1,
     VM_TENSOR_SHAPE_DYNAMIC_UNBOUND = 2
 } VMTensorShapeDynamism;
 
 // 张量元数据定义 (28 字节)
 typedef struct TensorMeta {
-    uint32_t scalar_type; // VMTensorScalarType
+    uint32_t scalar_type;    // VMTensorScalarType
     uint32_t shape_dynamism; // VMTensorShapeDynamism
     uint32_t ndim;
     uint32_t shape_offset;     // 维度数组在全局 Int Pool 中的索引
@@ -84,7 +84,7 @@ typedef struct TensorMeta {
 
 // 寄存器/变量池实体 (8 字节)
 typedef struct EValue {
-    uint32_t type; // EValueType
+    uint32_t type;    // EValueType
     uint32_t payload; // 如果是 Int/Bool，直接存值；如果是 Tensor/String，存对应的索引(ID)
 } EValue;
 
@@ -154,15 +154,15 @@ typedef struct VMFileHeader {
 } VMFileHeader;
 
 typedef enum VMSectionKind {
-    VM_SECTION_STRINGS = 0,
-    VM_SECTION_INTS = 1,
-    VM_SECTION_TENSORS = 2,
-    VM_SECTION_EVALUES = 3,
-    VM_SECTION_OPERATORS = 4,
-    VM_SECTION_DELEGATES = 5,
+    VM_SECTION_STRINGS      = 0,
+    VM_SECTION_INTS         = 1,
+    VM_SECTION_TENSORS      = 2,
+    VM_SECTION_EVALUES      = 3,
+    VM_SECTION_OPERATORS    = 4,
+    VM_SECTION_DELEGATES    = 5,
     VM_SECTION_INSTRUCTIONS = 6,
-    VM_SECTION_EXEC_PLANS = 7,
-    VM_SECTION_WEIGHTS = 8
+    VM_SECTION_EXEC_PLANS   = 7,
+    VM_SECTION_WEIGHTS      = 8
 } VMSectionKind;
 
 // Section 索引项（16 字节）

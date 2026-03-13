@@ -4,10 +4,12 @@ LDFLAGS := -lprotobuf
 
 SRC_DIR := .
 BUILD_DIR := build
+FRONTEND_DIR := $(SRC_DIR)/frontend
 
 TARGET := compiler.elf
 TARGET_ARGS ?=
 
+# Source files
 SRCS := $(wildcard $(SRC_DIR)/*.cc) \
         $(wildcard $(SRC_DIR)/frontend/*.cc) \
         $(wildcard $(SRC_DIR)/graph/*.cc) \
@@ -31,10 +33,10 @@ COLOR_YELLOW := \033[33m
 COLOR_BLUE := \033[34m
 COLOR_CYAN := \033[36m
 
-.PHONY: all run clean format
+.PHONY: all init run clean format clean-all
 
+# Default target: build the compiler
 all: $(TARGET)
-	@echo "$(COLOR_GREEN)[SUCCESS]$(COLOR_RESET) $(TARGET) built successfully."
 
 run: all
 	@echo "$(COLOR_CYAN)[RUN]$(COLOR_RESET) Executing $(TARGET)..."
@@ -49,9 +51,26 @@ $(TARGET): $(OBJS)
 	@echo "$(COLOR_BLUE)[LINK]$(COLOR_RESET) $@..."
 	@$(CXX) $(CXXFLAGS) $(OBJS) -o $@ $(LDFLAGS)
 
+
+# Protobuf files
+PROTO_FILE := $(FRONTEND_DIR)/onnx.proto
+PROTO_HDR := $(FRONTEND_DIR)/onnx.pb.h
+PROTO_SRC := $(FRONTEND_DIR)/onnx.pb.cc
+
+# Initialize: generate protobuf files
+init:
+	@echo "$(COLOR_CYAN)[INIT]$(COLOR_RESET) Generating protobuf files..."
+	@cd $(FRONTEND_DIR) && protoc --cpp_out=. onnx.proto
+	@echo "$(COLOR_GREEN)[SUCCESS]$(COLOR_RESET) Protobuf files generated."
+	@echo "$(COLOR_GREEN)[SUCCESS]$(COLOR_RESET) $(TARGET) built successfully."
+
 clean:
 	@echo "$(COLOR_YELLOW)[CLEAN]$(COLOR_RESET) Removing build artifacts..."
 	@rm -rf $(BUILD_DIR)
 	@rm -f $(TARGET)
+
+clean-all: clean
+	@echo "$(COLOR_YELLOW)[CLEAN]$(COLOR_RESET) Removing generated protobuf files..."
+	@rm -f $(PROTO_HDR) $(PROTO_SRC)
 
 -include $(DEPS)

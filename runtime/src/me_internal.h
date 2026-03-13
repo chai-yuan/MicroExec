@@ -11,8 +11,8 @@
 #ifndef ME_INTERNAL_H
 #define ME_INTERNAL_H
 
-#include "microexec.h"
 #include "me_memory.h"
+#include "microexec.h"
 #include "vm_types.h"
 
 #include <stdbool.h>
@@ -22,7 +22,7 @@
 
 typedef struct MeOpEntry {
     uint32_t     hash;
-    const char  *name;     /* owned copy of the operator name */
+    const char  *name; /* owned copy of the operator name */
     MeKernelFunc kernel;
 } MeOpEntry;
 
@@ -41,8 +41,7 @@ typedef struct MeOpRegistry {
 
 MeStatus     me_registry_init(MeOpRegistry *reg, MeAllocator *alloc);
 void         me_registry_destroy(MeOpRegistry *reg);
-MeStatus     me_registry_put(MeOpRegistry *reg, const char *name,
-                             MeKernelFunc kernel);
+MeStatus     me_registry_put(MeOpRegistry *reg, const char *name, MeKernelFunc kernel);
 MeStatus     me_registry_remove(MeOpRegistry *reg, const char *name);
 MeKernelFunc me_registry_lookup(const MeOpRegistry *reg, const char *name);
 
@@ -76,9 +75,9 @@ struct MeProgram_T {
     bool     owns_data;
 
     /* Parsed section pointers — point directly into raw_data */
-    const VMFileHeader      *header;
-    const VMSectionDesc     *sections;
-    uint32_t                 section_count;
+    const VMFileHeader  *header;
+    const VMSectionDesc *sections;
+    uint32_t             section_count;
 
     const char              *string_pool;
     const int32_t           *int_pool;
@@ -120,13 +119,13 @@ struct MeProgram_T {
 };
 
 struct MeTensor_T {
-    MeScalarType  dtype;
-    int32_t      *shape;
-    uint32_t      ndim;
-    void         *data;
-    size_t        nbytes;
-    bool          owns_data;
-    MeAllocator  *allocator;
+    MeScalarType dtype;
+    int32_t     *shape;
+    uint32_t     ndim;
+    void        *data;
+    size_t       nbytes;
+    bool         owns_data;
+    MeAllocator *allocator;
 };
 
 #endif /* ME_INTERNAL_H */

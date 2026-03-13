@@ -49,8 +49,7 @@ void me_runtime_destroy(MeRuntime rt);
 /* ==== Program Loading ================================================== */
 
 /** 从内存缓冲区加载编译后的程序 */
-MeStatus me_program_load(MeRuntime rt, const void *data, uint32_t size,
-                         MeProgram *out);
+MeStatus me_program_load(MeRuntime rt, const void *data, uint32_t size, MeProgram *out);
 /** 从文件路径加载编译后的程序 */
 MeStatus me_program_load_file(MeRuntime rt, const char *path, MeProgram *out);
 /** 销毁已加载的程序 */
@@ -63,9 +62,7 @@ MeStatus me_program_output_count(MeProgram prog, uint32_t *count);
 /* ==== Tensor Management ================================================ */
 
 /** 创建张量（根据形状自动分配存储空间，内容初始化为零） */
-MeStatus me_tensor_create(MeRuntime rt, MeScalarType dtype,
-                          const int32_t *shape, uint32_t ndim,
-                          MeTensor *out);
+MeStatus me_tensor_create(MeRuntime rt, MeScalarType dtype, const int32_t *shape, uint32_t ndim, MeTensor *out);
 /** 销毁用户创建的张量 */
 void me_tensor_destroy(MeTensor tensor);
 /** 向张量拷贝数据（size 必须等于 me_tensor_nbytes） */
@@ -73,8 +70,7 @@ MeStatus me_tensor_set_data(MeTensor tensor, const void *src, size_t size);
 /** 获取张量数据缓冲区的可写指针 */
 void *me_tensor_data(MeTensor tensor);
 /** 查询张量形状 */
-MeStatus me_tensor_shape(MeTensor tensor, int32_t *shape_out,
-                         uint32_t *ndim_out);
+MeStatus me_tensor_shape(MeTensor tensor, int32_t *shape_out, uint32_t *ndim_out);
 /** 获取张量的标量类型 */
 MeScalarType me_tensor_dtype(MeTensor tensor);
 /** 获取张量数据缓冲区的总字节大小 */
@@ -83,13 +79,11 @@ size_t me_tensor_nbytes(MeTensor tensor);
 /* ==== Execution ======================================================== */
 
 /** 绑定输入张量到程序 */
-MeStatus me_program_set_input(MeProgram prog, uint32_t index,
-                              MeTensor tensor);
+MeStatus me_program_set_input(MeProgram prog, uint32_t index, MeTensor tensor);
 /** 执行程序（运行默认计划中的所有指令） */
 MeStatus me_program_execute(MeProgram prog);
 /** 获取输出张量的借用引用（由程序拥有，无需销毁） */
-MeStatus me_program_get_output(MeProgram prog, uint32_t index,
-                               MeTensor *out);
+MeStatus me_program_get_output(MeProgram prog, uint32_t index, MeTensor *out);
 
 /* ==== Utility ========================================================== */
 

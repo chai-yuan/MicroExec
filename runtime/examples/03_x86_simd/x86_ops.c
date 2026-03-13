@@ -15,7 +15,7 @@ MeStatus x86_relu(MeOpContext *ctx) {
     MeTensor in  = ctx->inputs[0];
     MeTensor out = ctx->outputs[0];
 
-    size_t n        = me_tensor_nbytes(in) / sizeof(float);
+    size_t       n   = me_tensor_nbytes(in) / sizeof(float);
     const float *src = (const float *)me_tensor_data(in);
     float       *dst = (float *)me_tensor_data(out);
 
@@ -23,7 +23,7 @@ MeStatus x86_relu(MeOpContext *ctx) {
 
 #ifdef __SSE2__
     __m128 zero = _mm_setzero_ps();
-    size_t i = 0;
+    size_t i    = 0;
     for (; i + 4 <= n; i += 4) {
         __m128 v = _mm_loadu_ps(src + i);
         _mm_storeu_ps(dst + i, _mm_max_ps(v, zero));
@@ -57,10 +57,12 @@ MeStatus x86_register_operators(MeRuntime rt) {
     MeStatus s;
 
     s = me_operator_register(rt, "Relu", x86_relu);
-    if (s != ME_STATUS_OK) return s;
+    if (s != ME_STATUS_OK)
+        return s;
 
     s = me_operator_register(rt, "Gemm", x86_gemm);
-    if (s != ME_STATUS_OK) return s;
+    if (s != ME_STATUS_OK)
+        return s;
 
     return ME_STATUS_OK;
 }

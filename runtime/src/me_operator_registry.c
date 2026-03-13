@@ -13,14 +13,16 @@ static uint32_t hash_str(const char *s) {
 static char *dup_str(MeAllocator *a, const char *s) {
     size_t len = strlen(s) + 1;
     char  *d   = (char *)me_alloc(a, len);
-    if (d) memcpy(d, s, len);
+    if (d)
+        memcpy(d, s, len);
     return d;
 }
 
 /* ---- Registry Lifecycle ----------------------------------------------- */
 
 MeStatus me_registry_init(MeOpRegistry *reg, MeAllocator *alloc) {
-    if (!reg || !alloc) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+    if (!reg || !alloc)
+        return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     reg->capacity  = ME_REGISTRY_INIT_CAP;
     reg->count     = 0;
@@ -28,14 +30,16 @@ MeStatus me_registry_init(MeOpRegistry *reg, MeAllocator *alloc) {
 
     size_t bytes = reg->capacity * sizeof(MeOpEntry);
     reg->entries = (MeOpEntry *)me_alloc(alloc, bytes);
-    if (!reg->entries) return ME_STATUS_ERROR_OUT_OF_MEMORY;
+    if (!reg->entries)
+        return ME_STATUS_ERROR_OUT_OF_MEMORY;
     memset(reg->entries, 0, bytes);
 
     return ME_STATUS_OK;
 }
 
 void me_registry_destroy(MeOpRegistry *reg) {
-    if (!reg || !reg->entries) return;
+    if (!reg || !reg->entries)
+        return;
     for (uint32_t i = 0; i < reg->capacity; ++i) {
         if (reg->entries[i].name)
             me_free(reg->allocator, (void *)reg->entries[i].name);
@@ -53,12 +57,14 @@ static MeStatus registry_grow(MeOpRegistry *reg) {
     size_t   new_size = new_cap * sizeof(MeOpEntry);
 
     MeOpEntry *new_entries = (MeOpEntry *)me_alloc(reg->allocator, new_size);
-    if (!new_entries) return ME_STATUS_ERROR_OUT_OF_MEMORY;
+    if (!new_entries)
+        return ME_STATUS_ERROR_OUT_OF_MEMORY;
     memset(new_entries, 0, new_size);
 
     for (uint32_t i = 0; i < reg->capacity; ++i) {
         MeOpEntry *e = &reg->entries[i];
-        if (!e->name) continue;
+        if (!e->name)
+            continue;
         uint32_t slot = e->hash & (new_cap - 1);
         while (new_entries[slot].name)
             slot = (slot + 1) & (new_cap - 1);
@@ -73,16 +79,15 @@ static MeStatus registry_grow(MeOpRegistry *reg) {
 
 /* ---- Public Operations ----------------------------------------------- */
 
-MeStatus me_registry_put(MeOpRegistry *reg, const char *name,
-                         MeKernelFunc kernel) {
-    if (!reg || !name || !kernel) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+MeStatus me_registry_put(MeOpRegistry *reg, const char *name, MeKernelFunc kernel) {
+    if (!reg || !name || !kernel)
+        return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     uint32_t h    = hash_str(name);
     uint32_t slot = h & (reg->capacity - 1);
 
     while (reg->entries[slot].name) {
-        if (reg->entries[slot].hash == h &&
-            strcmp(reg->entries[slot].name, name) == 0) {
+        if (reg->entries[slot].hash == h && strcmp(reg->entries[slot].name, name) == 0) {
             reg->entries[slot].kernel = kernel;
             return ME_STATUS_OK;
         }
@@ -91,7 +96,8 @@ MeStatus me_registry_put(MeOpRegistry *reg, const char *name,
 
     if (reg->count * 4 >= reg->capacity * 3) {
         MeStatus s = registry_grow(reg);
-        if (s != ME_STATUS_OK) return s;
+        if (s != ME_STATUS_OK)
+            return s;
         slot = h & (reg->capacity - 1);
         while (reg->entries[slot].name)
             slot = (slot + 1) & (reg->capacity - 1);
@@ -100,21 +106,22 @@ MeStatus me_registry_put(MeOpRegistry *reg, const char *name,
     reg->entries[slot].hash   = h;
     reg->entries[slot].name   = dup_str(reg->allocator, name);
     reg->entries[slot].kernel = kernel;
-    if (!reg->entries[slot].name) return ME_STATUS_ERROR_OUT_OF_MEMORY;
+    if (!reg->entries[slot].name)
+        return ME_STATUS_ERROR_OUT_OF_MEMORY;
     reg->count++;
 
     return ME_STATUS_OK;
 }
 
 MeStatus me_registry_remove(MeOpRegistry *reg, const char *name) {
-    if (!reg || !name) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+    if (!reg || !name)
+        return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     uint32_t h    = hash_str(name);
     uint32_t slot = h & (reg->capacity - 1);
 
     while (reg->entries[slot].name) {
-        if (reg->entries[slot].hash == h &&
-            strcmp(reg->entries[slot].name, name) == 0) {
+        if (reg->entries[slot].hash == h && strcmp(reg->entries[slot].name, name) == 0) {
             me_free(reg->allocator, (void *)reg->entries[slot].name);
             memset(&reg->entries[slot], 0, sizeof(MeOpEntry));
             reg->count--;
@@ -128,14 +135,14 @@ MeStatus me_registry_remove(MeOpRegistry *reg, const char *name) {
 }
 
 MeKernelFunc me_registry_lookup(const MeOpRegistry *reg, const char *name) {
-    if (!reg || !name) return NULL;
+    if (!reg || !name)
+        return NULL;
 
     uint32_t h    = hash_str(name);
     uint32_t slot = h & (reg->capacity - 1);
 
     while (reg->entries[slot].name) {
-        if (reg->entries[slot].hash == h &&
-            strcmp(reg->entries[slot].name, name) == 0)
+        if (reg->entries[slot].hash == h && strcmp(reg->entries[slot].name, name) == 0)
             return reg->entries[slot].kernel;
         slot = (slot + 1) & (reg->capacity - 1);
     }
@@ -145,13 +152,14 @@ MeKernelFunc me_registry_lookup(const MeOpRegistry *reg, const char *name) {
 
 /* ---- Public Wrappers (forward to registry) ---------------------------- */
 
-MeStatus me_operator_register(MeRuntime rt, const char *op_name,
-                              MeKernelFunc kernel) {
-    if (!rt) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+MeStatus me_operator_register(MeRuntime rt, const char *op_name, MeKernelFunc kernel) {
+    if (!rt)
+        return ME_STATUS_ERROR_INVALID_ARGUMENT;
     return me_registry_put(&rt->op_registry, op_name, kernel);
 }
 
 MeStatus me_operator_unregister(MeRuntime rt, const char *op_name) {
-    if (!rt) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+    if (!rt)
+        return ME_STATUS_ERROR_INVALID_ARGUMENT;
     return me_registry_remove(&rt->op_registry, op_name);
 }

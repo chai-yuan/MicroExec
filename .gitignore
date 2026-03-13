@@ -8,3 +8,7 @@ compile_commands.json
 *.o
 *.mvmp
 *.elf
+
+# Generated protobuf files
+onnx.pb.h
+onnx.pb.cc

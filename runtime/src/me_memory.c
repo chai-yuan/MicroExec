@@ -28,9 +28,9 @@ MeStatus me_arena_init(MeArena *arena, MeAllocator *parent, size_t capacity) {
     if (!arena || !parent || capacity == 0)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
-    arena->base = (uint8_t *)me_alloc_aligned(parent, capacity,
-                                              sizeof(void *));
-    if (!arena->base) return ME_STATUS_ERROR_OUT_OF_MEMORY;
+    arena->base = (uint8_t *)me_alloc_aligned(parent, capacity, sizeof(void *));
+    if (!arena->base)
+        return ME_STATUS_ERROR_OUT_OF_MEMORY;
 
     arena->capacity = capacity;
     arena->offset   = 0;
@@ -39,7 +39,8 @@ MeStatus me_arena_init(MeArena *arena, MeAllocator *parent, size_t capacity) {
 }
 
 void me_arena_destroy(MeArena *arena) {
-    if (!arena || !arena->base) return;
+    if (!arena || !arena->base)
+        return;
     me_free(arena->parent, arena->base);
     arena->base     = NULL;
     arena->capacity = 0;
@@ -47,12 +48,14 @@ void me_arena_destroy(MeArena *arena) {
 }
 
 void *me_arena_alloc(MeArena *arena, size_t size, size_t alignment) {
-    if (!arena || !arena->base || size == 0) return NULL;
+    if (!arena || !arena->base || size == 0)
+        return NULL;
 
-    size_t mask   = alignment - 1;
+    size_t mask    = alignment - 1;
     size_t aligned = (arena->offset + mask) & ~mask;
 
-    if (aligned + size > arena->capacity) return NULL;
+    if (aligned + size > arena->capacity)
+        return NULL;
 
     void *ptr     = arena->base + aligned;
     arena->offset = aligned + size;
@@ -60,13 +63,13 @@ void *me_arena_alloc(MeArena *arena, size_t size, size_t alignment) {
 }
 
 void me_arena_reset(MeArena *arena) {
-    if (arena) arena->offset = 0;
+    if (arena)
+        arena->offset = 0;
 }
 
 /* ---- Block Pool ------------------------------------------------------- */
 
-MeStatus me_block_pool_init(MeBlockPool *pool, MeAllocator *parent,
-                            size_t block_size, uint32_t block_count) {
+MeStatus me_block_pool_init(MeBlockPool *pool, MeAllocator *parent, size_t block_size, uint32_t block_count) {
     if (!pool || !parent || block_size == 0 || block_count == 0)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
@@ -74,7 +77,8 @@ MeStatus me_block_pool_init(MeBlockPool *pool, MeAllocator *parent,
     size_t stack_bytes = sizeof(uint32_t) * block_count;
 
     pool->base = (uint8_t *)me_alloc(parent, data_bytes);
-    if (!pool->base) return ME_STATUS_ERROR_OUT_OF_MEMORY;
+    if (!pool->base)
+        return ME_STATUS_ERROR_OUT_OF_MEMORY;
 
     pool->free_stack = (uint32_t *)me_alloc(parent, stack_bytes);
     if (!pool->free_stack) {
@@ -95,21 +99,24 @@ MeStatus me_block_pool_init(MeBlockPool *pool, MeAllocator *parent,
 }
 
 void me_block_pool_destroy(MeBlockPool *pool) {
-    if (!pool) return;
+    if (!pool)
+        return;
     me_free(pool->parent, pool->free_stack);
     me_free(pool->parent, pool->base);
     memset(pool, 0, sizeof(*pool));
 }
 
 void *me_block_pool_alloc(MeBlockPool *pool) {
-    if (!pool || pool->free_top == 0) return NULL;
+    if (!pool || pool->free_top == 0)
+        return NULL;
     uint32_t idx = pool->free_stack[--pool->free_top];
     return pool->base + idx * pool->block_size;
 }
 
 void me_block_pool_free(MeBlockPool *pool, void *ptr) {
-    if (!pool || !ptr) return;
-    size_t byte_offset = (uint8_t *)ptr - pool->base;
-    uint32_t idx = (uint32_t)(byte_offset / pool->block_size);
+    if (!pool || !ptr)
+        return;
+    size_t   byte_offset               = (uint8_t *)ptr - pool->base;
+    uint32_t idx                       = (uint32_t)(byte_offset / pool->block_size);
     pool->free_stack[pool->free_top++] = idx;
 }

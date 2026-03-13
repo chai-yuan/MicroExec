@@ -136,7 +136,7 @@ int ExecProgram::BuildFromGraph(const Graph &graph) {
     std::unordered_map<uint32_t, const Node *>          id_to_node;
 
     for (const Node *node : nodes) {
-        in_degree[node->id] = 0;
+        in_degree[node->id]  = 0;
         id_to_node[node->id] = node;
     }
 
@@ -385,10 +385,10 @@ int ExecProgram::PlanMemory() {
                 }
             }
 
-            val.buffer_id               = 1;
-            val.offset                  = candidate;
-            val.mem_planned             = true;
-            val.deferred_runtime_alloc  = false;
+            val.buffer_id              = 1;
+            val.offset                 = candidate;
+            val.mem_planned            = true;
+            val.deferred_runtime_alloc = false;
             val.dynamic_alloc_symbol.clear();
 
             live_regions.push_back({candidate, val.size_bytes, val.last_use});
@@ -400,7 +400,7 @@ int ExecProgram::PlanMemory() {
         }
     }
 
-    runtime_pool_size = AlignUp(runtime_pool_size, kAlignment);
+    runtime_pool_size              = AlignUp(runtime_pool_size, kAlignment);
     memory_plan_.runtime_pool_size = runtime_pool_size;
 
     memory_plan_.pools.clear();
@@ -482,8 +482,8 @@ void ExecProgram::Dump() const {
                      val.dynamic_alloc_symbol.c_str(), edge_name);
         } else {
             LOG_INFO("  v%-4u  %-5s  size=%-10lu  life=[%u, %u]  buf=%u off=%-8lu  edge=\"%s\"", val.id,
-                     ExecValueKindStr(val.kind), (unsigned long)val.size_bytes, val.first_def, val.last_use, val.buffer_id,
-                     (unsigned long)val.offset, edge_name);
+                     ExecValueKindStr(val.kind), (unsigned long)val.size_bytes, val.first_def, val.last_use,
+                     val.buffer_id, (unsigned long)val.offset, edge_name);
         }
     }
 
@@ -493,13 +493,15 @@ void ExecProgram::Dump() const {
 
         std::string in_str;
         for (size_t i = 0; i < instr.input_values.size(); ++i) {
-            if (i > 0) in_str += ", ";
+            if (i > 0)
+                in_str += ", ";
             in_str += "v" + std::to_string(instr.input_values[i]);
         }
 
         std::string out_str;
         for (size_t i = 0; i < instr.output_values.size(); ++i) {
-            if (i > 0) out_str += ", ";
+            if (i > 0)
+                out_str += ", ";
             out_str += "v" + std::to_string(instr.output_values[i]);
         }
 

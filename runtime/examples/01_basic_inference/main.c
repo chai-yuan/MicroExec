@@ -23,8 +23,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    MeRuntime rt   = NULL;
-    MeProgram prog = NULL;
+    MeRuntime rt     = NULL;
+    MeProgram prog   = NULL;
     MeTensor  input  = NULL;
     MeTensor  output = NULL;
     MeStatus  s;
@@ -46,23 +46,23 @@ int main(int argc, char *argv[]) {
 
     /* 创建输入张量（例如 LeNet: 1×1×28×28 float32） */
     int32_t shape[] = {1, 1, 28, 28};
-    s = me_tensor_create(rt, ME_SCALAR_FLOAT32, shape, 4, &input);
+    s               = me_tensor_create(rt, ME_SCALAR_FLOAT32, shape, 4, &input);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "tensor_create: %s\n", me_status_str(s));
         goto cleanup;
     }
 
     /* 使用编译时嵌入的测试输入图像 */
-    float *data = (float *)me_tensor_data(input);
+    float *data       = (float *)me_tensor_data(input);
     size_t elem_count = me_tensor_nbytes(input) / sizeof(float);
     size_t test_count = sizeof(kImageInput) / sizeof(kImageInput[0]);
     if (test_count != elem_count) {
-        fprintf(stderr, "Input element count mismatch: model expects %zu, test has %zu\n",
-                elem_count, test_count);
+        fprintf(stderr, "Input element count mismatch: model expects %zu, test has %zu\n", elem_count, test_count);
         s = ME_STATUS_ERROR_SHAPE_MISMATCH;
         goto cleanup;
     }
-    for (size_t i = 0; i < elem_count; ++i) data[i] = kImageInput[i];
+    for (size_t i = 0; i < elem_count; ++i)
+        data[i] = kImageInput[i];
 
     /* 绑定输入并执行推理 */
     s = me_program_set_input(prog, 0, input);
@@ -86,12 +86,13 @@ int main(int argc, char *argv[]) {
 
     printf("Inference complete. Output bytes: %zu\n", me_tensor_nbytes(output));
     if (me_tensor_dtype(output) == ME_SCALAR_FLOAT32) {
-        const float *out_data = (const float *)me_tensor_data(output);
-        size_t out_count = me_tensor_nbytes(output) / sizeof(float);
+        const float *out_data  = (const float *)me_tensor_data(output);
+        size_t       out_count = me_tensor_nbytes(output) / sizeof(float);
         if (out_count > 0) {
             size_t argmax = 0;
             for (size_t i = 1; i < out_count; ++i) {
-                if (out_data[i] > out_data[argmax]) argmax = i;
+                if (out_data[i] > out_data[argmax])
+                    argmax = i;
             }
             printf("Predicted class: %zu\n", argmax);
         }

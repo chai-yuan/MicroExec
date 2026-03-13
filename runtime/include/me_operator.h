@@ -22,10 +22,8 @@ typedef struct MeOpContext {
 /** 内核函数指针类型 */
 typedef MeStatus (*MeKernelFunc)(MeOpContext *ctx);
 
-
 /** 注册或覆盖算子内核（同名内核将被替换） */
-MeStatus me_operator_register(MeRuntime rt, const char *op_name,
-                              MeKernelFunc kernel);
+MeStatus me_operator_register(MeRuntime rt, const char *op_name, MeKernelFunc kernel);
 
 /** 注销算子内核（回退到内置软实现） */
 MeStatus me_operator_unregister(MeRuntime rt, const char *op_name);
