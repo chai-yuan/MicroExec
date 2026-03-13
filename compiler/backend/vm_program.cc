@@ -15,6 +15,7 @@
 
 namespace {
 
+// 将值按指定对齐方式向上对齐到边界。
 static uint32_t AlignUpU32(uint32_t value, uint32_t alignment) {
     if (alignment == 0u) {
         return value;
@@ -22,6 +23,7 @@ static uint32_t AlignUpU32(uint32_t value, uint32_t alignment) {
     return (value + alignment - 1u) & ~(alignment - 1u);
 }
 
+// 将 POD 类型的 vector 转换为字节序列并追加到输出缓冲区。
 template <typename T>
 static void AppendPodVectorAsBytes(const std::vector<T> &items, std::vector<uint8_t> &out) {
     if (items.empty()) {
@@ -31,6 +33,7 @@ static void AppendPodVectorAsBytes(const std::vector<T> &items, std::vector<uint
     out.insert(out.end(), bytes, bytes + sizeof(T) * items.size());
 }
 
+// 将字符串池构建为字节序列（每个字符串前带长度前缀）。
 static std::vector<uint8_t> BuildStringSection(const std::vector<std::string> &pool) {
     std::vector<uint8_t> out;
     for (const std::string &item : pool) {
@@ -42,6 +45,7 @@ static std::vector<uint8_t> BuildStringSection(const std::vector<std::string> &p
     return out;
 }
 
+// 将 int64 维度值归一化为 uint32，负值或溢出时返回最大值。
 static uint32_t NormalizeDimToU32(int64_t dim) {
     if (dim < 0) {
         return std::numeric_limits<uint32_t>::max();
@@ -52,6 +56,7 @@ static uint32_t NormalizeDimToU32(int64_t dim) {
     return static_cast<uint32_t>(dim);
 }
 
+// 将执行操作类型转换为对应的 VM 操作码。
 static uint8_t ToOpcode(ExecOpKind kind) {
     switch (kind) {
     case ExecOpKind::KERNEL:
@@ -66,6 +71,7 @@ static uint8_t ToOpcode(ExecOpKind kind) {
     }
 }
 
+// 将数据类型转换为 VM 张量标量类型枚举值。
 static uint32_t ToVMTensorScalarType(DataType dtype) {
     switch (dtype) {
     case DataType::FLOAT32:
@@ -90,6 +96,7 @@ static uint32_t ToVMTensorScalarType(DataType dtype) {
     }
 }
 
+// 根据执行值判断张量形状的动态性类型。
 static uint32_t ToVMTensorShapeDynamism(const ExecValue &value) {
     if (value.deferred_runtime_alloc) {
         return VM_TENSOR_SHAPE_DYNAMIC_UNBOUND;
@@ -99,32 +106,38 @@ static uint32_t ToVMTensorShapeDynamism(const ExecValue &value) {
 
 } // namespace
 
+// 默认构造函数。
 ProgramBuilder::ProgramBuilder() = default;
 
+// 向字符串池添加字符串并返回其索引。
 uint32_t ProgramBuilder::AddString(const std::string &str) {
     uint32_t idx = static_cast<uint32_t>(string_pool_.size());
     string_pool_.push_back(str);
     return idx;
 }
 
+// 向整数池添加数组并返回其起始偏移量。
 uint32_t ProgramBuilder::AddIntArray(const std::vector<uint32_t> &arr) {
     uint32_t offset = static_cast<uint32_t>(int_pool_.size());
     int_pool_.insert(int_pool_.end(), arr.begin(), arr.end());
     return offset;
 }
 
+// 向张量元数据池添加张量描述并返回其索引。
 uint32_t ProgramBuilder::AddTensorMeta(const TensorMeta &meta) {
     uint32_t idx = static_cast<uint32_t>(tensor_pool_.size());
     tensor_pool_.push_back(meta);
     return idx;
 }
 
+// 向 EValue 池添加值并返回其索引。
 uint32_t ProgramBuilder::AddEValue(const EValue &evalue) {
     uint32_t idx = static_cast<uint32_t>(evalue_pool_.size());
     evalue_pool_.push_back(evalue);
     return idx;
 }
 
+// 向算子池添加算子定义并返回其索引。
 uint32_t ProgramBuilder::AddOperator(const std::string &name, const std::string &overload) {
     OperatorDef op{};
     op.name_idx     = AddString(name);
@@ -135,6 +148,7 @@ uint32_t ProgramBuilder::AddOperator(const std::string &name, const std::string 
     return idx;
 }
 
+// 向委托池添加后端委托定义并返回其索引。
 uint32_t ProgramBuilder::AddDelegate(const std::string &backend_id, uint32_t blob_offset, uint32_t blob_size) {
     BackendDelegate delegate{};
     delegate.id_idx      = AddString(backend_id);
@@ -146,8 +160,10 @@ uint32_t ProgramBuilder::AddDelegate(const std::string &backend_id, uint32_t blo
     return idx;
 }
 
+// 将指令追加到指令池。
 void ProgramBuilder::AppendInstruction(const Instruction &inst) { instruction_pool_.push_back(inst); }
 
+// 构建执行计划，包含输入输出和指令范围信息。
 void ProgramBuilder::BuildExecutionPlan(const std::string &name, const std::vector<uint32_t> &inputs,
                                         const std::vector<uint32_t> &outputs, uint32_t memory_pool_size) {
     ExecutionPlanData plan{};
@@ -169,6 +185,7 @@ void ProgramBuilder::BuildExecutionPlan(const std::string &name, const std::vect
     plan_pool_.push_back(plan);
 }
 
+// 将所有构建的数据序列化为 VM 二进制文件。
 int ProgramBuilder::Serialize(const std::string &output_file) {
     struct SectionPayload {
         VMSectionKind kind;
@@ -267,6 +284,7 @@ int ProgramBuilder::Serialize(const std::string &output_file) {
     return 0;
 }
 
+// 从执行程序 IR 构建 VM 程序数据。
 int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
     const auto &values = exec.GetValues();
     const auto &instructions = exec.GetInstructions();
