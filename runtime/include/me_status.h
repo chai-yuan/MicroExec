@@ -1,0 +1,23 @@
+/**
+ * @file me_status.h
+ * @brief MicroExec runtime status codes.
+ */
+#ifndef MICROEXEC_ME_STATUS_H
+#define MICROEXEC_ME_STATUS_H
+
+typedef enum MeStatus {
+    ME_STATUS_OK = 0,
+    ME_STATUS_ERROR_INVALID_ARGUMENT,
+    ME_STATUS_ERROR_OUT_OF_MEMORY,
+    ME_STATUS_ERROR_INVALID_PROGRAM,
+    ME_STATUS_ERROR_OPERATOR_NOT_FOUND,
+    ME_STATUS_ERROR_SHAPE_MISMATCH,
+    ME_STATUS_ERROR_EXECUTION_FAILED,
+    ME_STATUS_ERROR_IO,
+    ME_STATUS_ERROR_UNSUPPORTED,
+    ME_STATUS_ERROR_INTERNAL,
+} MeStatus;
+
+const char *me_status_str(MeStatus status);
+
+#endif /* MICROEXEC_ME_STATUS_H */
