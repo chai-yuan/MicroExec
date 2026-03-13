@@ -7,6 +7,7 @@
 #include <limits>
 #include <string>
 #include <unordered_map>
+#include <utility>
 #include <vector>
 
 #include "common/exec_types.h"
@@ -227,7 +228,7 @@ int ProgramBuilder::Serialize(const std::string &output_file) {
     AppendPodVectorAsBytes(plan_pool_, plans.bytes);
     sections.push_back(std::move(plans));
 
-    sections.push_back({VM_SECTION_WEIGHTS, {}, 0});
+    sections.push_back({VM_SECTION_WEIGHTS, weight_pool_, weight_tensor_count_});
 
     std::vector<VMSectionDesc> section_descs(sections.size());
     uint32_t section_table_ofs = sizeof(VMFileHeader);
@@ -286,6 +287,18 @@ int ProgramBuilder::Serialize(const std::string &output_file) {
 
 // 从执行程序 IR 构建 VM 程序数据。
 int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
+    // 每次构建前清空状态，避免重复调用时累积脏数据。
+    weight_pool_.clear();
+    weight_tensor_count_ = 0;
+    string_pool_.clear();
+    int_pool_.clear();
+    tensor_pool_.clear();
+    evalue_pool_.clear();
+    operator_pool_.clear();
+    delegate_pool_.clear();
+    instruction_pool_.clear();
+    plan_pool_.clear();
+
     const auto &values = exec.GetValues();
     const auto &instructions = exec.GetInstructions();
     const auto &inputs = exec.GetInputValueIds();
@@ -302,6 +315,42 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
     id_to_value.reserve(values.size());
     for (const ExecValue &value : values) {
         id_to_value[value.id] = &value;
+    }
+
+    // 构建常量权重段：按内存规划中的常量池偏移布局，便于 runtime 直接按 data_offset 访问。
+    const uint64_t constant_pool_size_u64 = exec.GetMemoryPlan().constant_pool_size;
+    if (constant_pool_size_u64 > std::numeric_limits<uint32_t>::max()) {
+        LOG_ERROR("LowerToVM: constant pool too large: %lu", (unsigned long)constant_pool_size_u64);
+        return -1;
+    }
+    weight_pool_.resize(static_cast<size_t>(constant_pool_size_u64), 0);
+    for (const ExecValue &value : values) {
+        if (value.kind != ExecValueKind::CONSTANT) {
+            continue;
+        }
+        if (value.constant_size > value.size_bytes) {
+            LOG_ERROR("LowerToVM: constant value %u has invalid size: data=%lu total=%lu", value.id,
+                      (unsigned long)value.constant_size, (unsigned long)value.size_bytes);
+            return -1;
+        }
+        if (value.constant_size == 0) {
+            ++weight_tensor_count_;
+            continue;
+        }
+        if (value.constant_data == nullptr) {
+            LOG_ERROR("LowerToVM: constant value %u data pointer is null", value.id);
+            return -1;
+        }
+        const uint64_t write_end = value.offset + value.constant_size;
+        if (write_end > constant_pool_size_u64) {
+            LOG_ERROR("LowerToVM: constant value %u out of bounds, offset=%lu size=%lu pool=%lu", value.id,
+                      (unsigned long)value.offset, (unsigned long)value.constant_size,
+                      (unsigned long)constant_pool_size_u64);
+            return -1;
+        }
+        std::memcpy(weight_pool_.data() + static_cast<size_t>(value.offset), value.constant_data,
+                    static_cast<size_t>(value.constant_size));
+        ++weight_tensor_count_;
     }
 
     std::unordered_map<uint32_t, uint32_t> exec_to_evalue_idx;
@@ -462,7 +511,7 @@ int ProgramBuilder::BuildFromExecProgram(const ExecProgram &exec) {
         vm_outputs.push_back(output_it->second);
     }
 
-    uint64_t runtime_pool_size_u64 = exec.GetMemoryPlan().runtime_pool_size;
+    const uint64_t runtime_pool_size_u64 = exec.GetMemoryPlan().runtime_pool_size;
     if (runtime_pool_size_u64 > std::numeric_limits<uint32_t>::max()) {
         LOG_ERROR("LowerToVM: runtime pool too large: %lu", (unsigned long)runtime_pool_size_u64);
         return -1;

@@ -2,6 +2,7 @@
 #define COMPILER_BACKEND_VM_PROGRAM_H
 
 #include <string>
+#include <cstdint>
 #include <vector>
 
 #include "common/vm_types.h"
@@ -35,6 +36,8 @@ class ProgramBuilder {
     int Serialize(const std::string &output_file);
 
   private:
+    std::vector<uint8_t>       weight_pool_;
+    uint32_t                   weight_tensor_count_ = 0;
     std::vector<std::string>      string_pool_;
     std::vector<uint32_t>         int_pool_;
     std::vector<TensorMeta>       tensor_pool_;
