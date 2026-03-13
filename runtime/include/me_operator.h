@@ -1,10 +1,8 @@
 /**
  * @file me_operator.h
- * @brief Operator extension API for MicroExec runtime.
+ * @brief MicroExec 运行时算子扩展 API。
  *
- * Provides the kernel function signature and registration interface that
- * allows users to override built-in soft operators with accelerated
- * implementations.
+ * 提供内核函数签名和注册接口，允许用户用加速实现覆盖内置软算子。
  */
 #ifndef MICROEXEC_ME_OPERATOR_H
 #define MICROEXEC_ME_OPERATOR_H
@@ -12,18 +10,7 @@
 #include "me_status.h"
 #include "me_types.h"
 
-/* ---- Operator Kernel Interface ---------------------------------------- */
-
-/**
- * Execution context passed to every operator kernel.
- *
- * Kernels read data from `inputs[0..input_count)` and write results
- * into `outputs[0..output_count)`.  Output tensor storage is pre-allocated
- * by the runtime according to the memory plan; kernels should NOT allocate
- * or free output tensors themselves.
- *
- * The `allocator` field may be used for temporary scratch buffers.
- */
+/** 算子执行上下文（内核从中读取输入，写入输出） */
 typedef struct MeOpContext {
     MeTensor    *inputs;
     uint32_t     input_count;
@@ -32,30 +19,15 @@ typedef struct MeOpContext {
     MeAllocator *allocator;
 } MeOpContext;
 
-/** Kernel function pointer type. */
+/** 内核函数指针类型 */
 typedef MeStatus (*MeKernelFunc)(MeOpContext *ctx);
 
-/* ---- Registration ----------------------------------------------------- */
 
-/**
- * Register (or override) an operator kernel.
- *
- * @param rt      Runtime handle.
- * @param op_name Operator name (e.g. "onnx::Conv").  The name must match
- *                the string stored in the compiled program file.
- * @param kernel  Kernel function pointer.
- * @return ME_STATUS_OK on success.
- *
- * If a kernel with the same name already exists (including built-in soft
- * operators), it is replaced.
- */
+/** 注册或覆盖算子内核（同名内核将被替换） */
 MeStatus me_operator_register(MeRuntime rt, const char *op_name,
                               MeKernelFunc kernel);
 
-/**
- * Unregister an operator kernel, falling back to the built-in soft
- * implementation (if one exists).
- */
+/** 注销算子内核（回退到内置软实现） */
 MeStatus me_operator_unregister(MeRuntime rt, const char *op_name);
 
 #endif /* MICROEXEC_ME_OPERATOR_H */

@@ -1,12 +1,10 @@
 /**
  * @file microexec.h
- * @brief MicroExec Runtime — public API umbrella header.
+ * @brief MicroExec 运行时公共 API 总头文件。
  *
- * Include this single header to access the full runtime API.
- * The runtime uses opaque handles (MeRuntime, MeProgram, MeTensor)
- * and exposes all functionality through plain C functions.
+ * 包含此单一头文件即可访问完整的运行时 API。
  *
- * Typical usage:
+ * 典型用法：
  *
  *     MeRuntime rt;
  *     me_runtime_create(NULL, &rt);
@@ -17,14 +15,14 @@
  *     MeTensor input;
  *     int32_t shape[] = {1, 1, 28, 28};
  *     me_tensor_create(rt, ME_SCALAR_FLOAT32, shape, 4, &input);
- *     // ... fill input data ...
+ *     // ... 填充输入数据 ...
  *
  *     me_program_set_input(prog, 0, input);
  *     me_program_execute(prog);
  *
  *     MeTensor output;
  *     me_program_get_output(prog, 0, &output);
- *     // ... read output data ...
+ *     // ... 读取输出数据 ...
  *
  *     me_tensor_destroy(input);
  *     me_program_destroy(prog);
@@ -43,105 +41,59 @@ extern "C" {
 
 /* ==== Runtime Lifecycle ================================================ */
 
-/**
- * Create a runtime instance.
- *
- * @param config  Optional configuration (pass NULL for defaults).
- * @param out     Receives the new runtime handle on success.
- * @return ME_STATUS_OK on success.
- *
- * Built-in soft operators are automatically registered during creation.
- */
+/** 创建运行时实例（传入 NULL 使用默认配置） */
 MeStatus me_runtime_create(const MeRuntimeConfig *config, MeRuntime *out);
-
-/** Destroy a runtime and release all associated resources. */
+/** 销毁运行时并释放所有关联资源 */
 void me_runtime_destroy(MeRuntime rt);
 
 /* ==== Program Loading ================================================== */
 
-/**
- * Load a compiled program from an in-memory buffer.
- *
- * The runtime makes an internal copy of @p data; the caller may free the
- * buffer after this call returns.
- */
+/** 从内存缓冲区加载编译后的程序 */
 MeStatus me_program_load(MeRuntime rt, const void *data, uint32_t size,
                          MeProgram *out);
-
-/** Load a compiled program from a file path. */
+/** 从文件路径加载编译后的程序 */
 MeStatus me_program_load_file(MeRuntime rt, const char *path, MeProgram *out);
-
-/** Destroy a loaded program and release its resources. */
+/** 销毁已加载的程序 */
 void me_program_destroy(MeProgram prog);
-
-/** Query the number of input tensors expected by the program. */
+/** 查询程序期望的输入张量数量 */
 MeStatus me_program_input_count(MeProgram prog, uint32_t *count);
-
-/** Query the number of output tensors produced by the program. */
+/** 查询程序产生的输出张量数量 */
 MeStatus me_program_output_count(MeProgram prog, uint32_t *count);
 
 /* ==== Tensor Management ================================================ */
 
-/**
- * Create a new tensor.
- *
- * Storage is allocated for the full element count implied by @p shape.
- * Contents are zero-initialised.
- */
+/** 创建张量（根据形状自动分配存储空间，内容初始化为零） */
 MeStatus me_tensor_create(MeRuntime rt, MeScalarType dtype,
                           const int32_t *shape, uint32_t ndim,
                           MeTensor *out);
-
-/** Destroy a user-created tensor. */
+/** 销毁用户创建的张量 */
 void me_tensor_destroy(MeTensor tensor);
-
-/**
- * Copy data into a tensor.
- *
- * @param size  Byte count to copy; must equal me_tensor_nbytes(tensor).
- */
+/** 向张量拷贝数据（size 必须等于 me_tensor_nbytes） */
 MeStatus me_tensor_set_data(MeTensor tensor, const void *src, size_t size);
-
-/** Return a mutable pointer to the tensor's data buffer. */
+/** 获取张量数据缓冲区的可写指针 */
 void *me_tensor_data(MeTensor tensor);
-
-/**
- * Query the shape of a tensor.
- *
- * @param shape_out  Caller-provided buffer (at least @p *ndim_out int32_t's).
- * @param ndim_out   On entry: capacity of shape_out; on exit: actual ndim.
- */
+/** 查询张量形状 */
 MeStatus me_tensor_shape(MeTensor tensor, int32_t *shape_out,
                          uint32_t *ndim_out);
-
-/** Return the scalar type of a tensor. */
+/** 获取张量的标量类型 */
 MeScalarType me_tensor_dtype(MeTensor tensor);
-
-/** Return the total byte size of a tensor's data buffer. */
+/** 获取张量数据缓冲区的总字节大小 */
 size_t me_tensor_nbytes(MeTensor tensor);
 
 /* ==== Execution ======================================================== */
 
-/** Bind an input tensor to the program before execution. */
+/** 绑定输入张量到程序 */
 MeStatus me_program_set_input(MeProgram prog, uint32_t index,
                               MeTensor tensor);
-
-/** Execute the program (run all instructions in the default plan). */
+/** 执行程序（运行默认计划中的所有指令） */
 MeStatus me_program_execute(MeProgram prog);
-
-/**
- * Retrieve a borrowed reference to an output tensor after execution.
- *
- * The returned tensor is owned by the program and remains valid until the
- * next call to me_program_execute() or me_program_destroy().
- * Do NOT call me_tensor_destroy() on it.
- */
+/** 获取输出张量的借用引用（由程序拥有，无需销毁） */
 MeStatus me_program_get_output(MeProgram prog, uint32_t index,
                                MeTensor *out);
 
 /* ==== Utility ========================================================== */
 
-/** Return a version string for the runtime library (e.g. "0.1.0"). */
+/** 获取运行时库版本字符串 */
 const char *me_version_string(void);
 
 #ifdef __cplusplus

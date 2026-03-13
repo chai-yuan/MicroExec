@@ -5,4 +5,6 @@ compile_commands.json
 
 *.onnx
 *.a
+*.o
+*.mvmp
 *.elf

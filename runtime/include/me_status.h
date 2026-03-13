@@ -1,6 +1,6 @@
 /**
  * @file me_status.h
- * @brief MicroExec runtime status codes.
+ * @brief MicroExec 运行时状态码。
  */
 #ifndef MICROEXEC_ME_STATUS_H
 #define MICROEXEC_ME_STATUS_H
@@ -18,6 +18,7 @@ typedef enum MeStatus {
     ME_STATUS_ERROR_INTERNAL,
 } MeStatus;
 
+/** 将状态码转换为可读字符串 */
 const char *me_status_str(MeStatus status);
 
 #endif /* MICROEXEC_ME_STATUS_H */

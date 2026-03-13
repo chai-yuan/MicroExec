@@ -1,12 +1,12 @@
 /**
- * Example 01 — Basic Inference
+ * 示例 01 — 基础推理
  *
- * Demonstrates the minimal workflow:
- *   1. Create a runtime
- *   2. Load a compiled .mvmp program
- *   3. Create and bind an input tensor
- *   4. Execute inference
- *   5. Read the output
+ * 演示最小化的工作流程：
+ *   1. 创建运行时环境
+ *   2. 加载编译后的 .mvmp 程序
+ *   3. 创建并绑定输入张量
+ *   4. 执行推理
+ *   5. 读取输出结果
  */
 #include <stdio.h>
 #include <stdlib.h>
@@ -29,7 +29,7 @@ int main(int argc, char *argv[]) {
     MeTensor  output = NULL;
     MeStatus  s;
 
-    /* 1. Create runtime with default configuration */
+    /* 使用默认配置创建运行时环境 */
     s = me_runtime_create(NULL, &rt);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "runtime_create: %s\n", me_status_str(s));
@@ -37,14 +37,14 @@ int main(int argc, char *argv[]) {
     }
     printf("MicroExec runtime v%s\n", me_version_string());
 
-    /* 2. Load the compiled model */
+    /* 加载编译后的模型 */
     s = me_program_load_file(rt, argv[1], &prog);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "program_load: %s\n", me_status_str(s));
         goto cleanup;
     }
 
-    /* 3. Create an input tensor (e.g. LeNet: 1×1×28×28 float32) */
+    /* 创建输入张量（例如 LeNet: 1×1×28×28 float32） */
     int32_t shape[] = {1, 1, 28, 28};
     s = me_tensor_create(rt, ME_SCALAR_FLOAT32, shape, 4, &input);
     if (s != ME_STATUS_OK) {
@@ -52,7 +52,7 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    /* Use a compile-time embedded test input image */
+    /* 使用编译时嵌入的测试输入图像 */
     float *data = (float *)me_tensor_data(input);
     size_t elem_count = me_tensor_nbytes(input) / sizeof(float);
     size_t test_count = sizeof(kImageInput) / sizeof(kImageInput[0]);
@@ -64,7 +64,7 @@ int main(int argc, char *argv[]) {
     }
     for (size_t i = 0; i < elem_count; ++i) data[i] = kImageInput[i];
 
-    /* 4. Bind input and execute */
+    /* 绑定输入并执行推理 */
     s = me_program_set_input(prog, 0, input);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "set_input: %s\n", me_status_str(s));
@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    /* 5. Retrieve and print output */
+    /* 获取并打印输出结果 */
     s = me_program_get_output(prog, 0, &output);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "get_output: %s\n", me_status_str(s));

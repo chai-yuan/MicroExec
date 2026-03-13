@@ -1,9 +1,9 @@
 /**
  * @file me_types.h
- * @brief MicroExec runtime public type definitions.
+ * @brief MicroExec 运行时公共类型定义。
  *
- * Defines opaque handles, scalar types, allocator interface and runtime
- * configuration.  This header is part of the public API surface.
+ * 定义不透明句柄、标量类型、分配器接口和运行时配置。
+ * 此头文件属于公共 API 的一部分。
  */
 #ifndef MICROEXEC_ME_TYPES_H
 #define MICROEXEC_ME_TYPES_H
@@ -19,7 +19,7 @@ typedef struct MeTensor_T  *MeTensor;
 
 /* ---- Scalar Type ------------------------------------------------------ */
 
-/** Mirrors VMTensorScalarType values from vm_types.h for binary compatibility. */
+/** 与 vm_types.h 中的 VMTensorScalarType 值保持一致以确保二进制兼容 */
 typedef enum MeScalarType {
     ME_SCALAR_UNKNOWN = 0,
     ME_SCALAR_FLOAT32 = 1,
@@ -31,7 +31,7 @@ typedef enum MeScalarType {
     ME_SCALAR_BOOL    = 7,
 } MeScalarType;
 
-/** Returns the byte width of a scalar type, or 0 for unknown types. */
+/** 获取标量类型的字节宽度（未知类型返回 0） */
 static inline size_t me_scalar_type_size(MeScalarType dtype) {
     switch (dtype) {
     case ME_SCALAR_FLOAT32: return 4;
@@ -47,14 +47,7 @@ static inline size_t me_scalar_type_size(MeScalarType dtype) {
 
 /* ---- User-replaceable Allocator --------------------------------------- */
 
-/**
- * Allocator interface.
- *
- * Users may supply their own allocator at runtime creation.
- * The runtime calls `alloc` to obtain memory and `free` to release it.
- * `ctx` is forwarded untouched to every call so that stateful allocators
- * can be implemented.
- */
+/** 分配器接口（用户可在创建运行时传入自定义分配器） */
 typedef struct MeAllocator {
     void *(*alloc)(void *ctx, size_t size, size_t alignment);
     void  (*free)(void *ctx, void *ptr);
@@ -64,7 +57,7 @@ typedef struct MeAllocator {
 /* ---- Runtime Configuration -------------------------------------------- */
 
 typedef struct MeRuntimeConfig {
-    /** Custom allocator.  NULL selects the built-in malloc/free allocator. */
+    /** 自定义分配器（NULL 表示使用内置 malloc/free） */
     MeAllocator *allocator;
 } MeRuntimeConfig;
 
