@@ -8,7 +8,7 @@
 #ifndef SOFT_OPERATORS_H
 #define SOFT_OPERATORS_H
 
-#include "me_operator.h"
+#include "microexec.h"
 
 MeStatus me_op_soft_conv(MeOpContext *ctx);
 MeStatus me_op_soft_relu(MeOpContext *ctx);

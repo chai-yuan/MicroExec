@@ -14,12 +14,12 @@ typedef struct {
 } BuiltinEntry;
 
 static const BuiltinEntry kBuiltins[] = {
-    {"onnx::Conv",    me_op_soft_conv},
-    {"onnx::Relu",    me_op_soft_relu},
-    {"onnx::MaxPool", me_op_soft_maxpool},
-    {"onnx::Gemm",    me_op_soft_gemm},
-    {"onnx::Reshape", me_op_soft_reshape},
-    {"onnx::Softmax", me_op_soft_softmax},
+    {"Conv",          me_op_soft_conv},
+    {"Relu",          me_op_soft_relu},
+    {"MaxPool",       me_op_soft_maxpool},
+    {"Gemm",          me_op_soft_gemm},
+    {"Reshape",       me_op_soft_reshape},
+    {"Softmax",       me_op_soft_softmax},
 };
 
 #define ARRAY_LEN(a) (sizeof(a) / sizeof((a)[0]))

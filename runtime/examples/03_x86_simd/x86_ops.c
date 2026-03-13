@@ -56,10 +56,10 @@ MeStatus x86_gemm(MeOpContext *ctx) {
 MeStatus x86_register_operators(MeRuntime rt) {
     MeStatus s;
 
-    s = me_operator_register(rt, "onnx::Relu", x86_relu);
+    s = me_operator_register(rt, "Relu", x86_relu);
     if (s != ME_STATUS_OK) return s;
 
-    s = me_operator_register(rt, "onnx::Gemm", x86_gemm);
+    s = me_operator_register(rt, "Gemm", x86_gemm);
     if (s != ME_STATUS_OK) return s;
 
     return ME_STATUS_OK;

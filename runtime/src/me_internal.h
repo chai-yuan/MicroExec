@@ -108,6 +108,7 @@ struct MeProgram_T {
 
     /* Mutable tensor handle array used during execution */
     MeTensor *io_tensors;
+    bool     *io_tensor_owned;
     uint32_t  io_tensor_count;
 
     /* User-bound input / output tensors */

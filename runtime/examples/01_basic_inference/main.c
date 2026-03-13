@@ -13,6 +13,10 @@
 
 #include "microexec.h"
 
+static const float kImageInput[] = {
+#include "image_2_f32.txt"
+};
+
 int main(int argc, char *argv[]) {
     if (argc < 2) {
         fprintf(stderr, "Usage: %s <model.mvmp>\n", argv[0]);
@@ -48,10 +52,17 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    /* Fill with dummy data (in real use, load actual image data here) */
+    /* Use a compile-time embedded test input image */
     float *data = (float *)me_tensor_data(input);
-    for (size_t i = 0; i < me_tensor_nbytes(input) / sizeof(float); ++i)
-        data[i] = 0.5f;
+    size_t elem_count = me_tensor_nbytes(input) / sizeof(float);
+    size_t test_count = sizeof(kImageInput) / sizeof(kImageInput[0]);
+    if (test_count != elem_count) {
+        fprintf(stderr, "Input element count mismatch: model expects %zu, test has %zu\n",
+                elem_count, test_count);
+        s = ME_STATUS_ERROR_SHAPE_MISMATCH;
+        goto cleanup;
+    }
+    for (size_t i = 0; i < elem_count; ++i) data[i] = kImageInput[i];
 
     /* 4. Bind input and execute */
     s = me_program_set_input(prog, 0, input);
@@ -73,8 +84,18 @@ int main(int argc, char *argv[]) {
         goto cleanup;
     }
 
-    printf("Inference complete. Output bytes: %zu\n",
-           me_tensor_nbytes(output));
+    printf("Inference complete. Output bytes: %zu\n", me_tensor_nbytes(output));
+    if (me_tensor_dtype(output) == ME_SCALAR_FLOAT32) {
+        const float *out_data = (const float *)me_tensor_data(output);
+        size_t out_count = me_tensor_nbytes(output) / sizeof(float);
+        if (out_count > 0) {
+            size_t argmax = 0;
+            for (size_t i = 1; i < out_count; ++i) {
+                if (out_data[i] > out_data[argmax]) argmax = i;
+            }
+            printf("Predicted class: %zu\n", argmax);
+        }
+    }
 
 cleanup:
     me_tensor_destroy(input);

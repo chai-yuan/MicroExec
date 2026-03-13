@@ -24,7 +24,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* Override the built-in ReLU with our custom version */
-    s = me_operator_register(rt, "onnx::Relu", my_fast_relu);
+    s = me_operator_register(rt, "Relu", my_fast_relu);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "operator_register: %s\n", me_status_str(s));
         me_runtime_destroy(rt);
