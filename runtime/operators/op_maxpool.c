@@ -60,7 +60,6 @@ MeStatus me_op_soft_maxpool(MeOpContext *ctx) {
     if (!infer_pool_params(H, OH, &kh, &sh, &ph) ||
         !infer_pool_params(W, OW, &kw, &sw, &pw))
         return ME_STATUS_ERROR_UNSUPPORTED;
-
     const float *src = (const float *)me_tensor_data(in);
     float *dst = (float *)me_tensor_data(out);
     for (int n = 0; n < N; ++n) {

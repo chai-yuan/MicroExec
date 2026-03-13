@@ -90,6 +90,7 @@ struct MeProgram_T {
     const ExecutionPlanData *plan_pool;
     const uint8_t           *weight_data;
 
+    uint32_t string_size;
     uint32_t string_count;
     uint32_t int_count;
     uint32_t tensor_count;

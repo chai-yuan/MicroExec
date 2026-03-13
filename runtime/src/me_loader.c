@@ -97,6 +97,7 @@ MeStatus me_loader_parse(MeProgram prog, const void *data, uint32_t size) {
         switch ((VMSectionKind)sec->kind) {
         case VM_SECTION_STRINGS:
             prog->string_pool  = (const char *)base;
+            prog->string_size  = sec->size_bytes;
             prog->string_count = sec->count;
             break;
         case VM_SECTION_INTS:

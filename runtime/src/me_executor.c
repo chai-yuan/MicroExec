@@ -1,6 +1,6 @@
 #include "me_internal.h"
-
 #include <limits.h>
+#include <stdlib.h>
 #include <string.h>
 
 static size_t tensor_nbytes_from_meta(const TensorMeta *meta,
@@ -23,6 +23,67 @@ static size_t tensor_nbytes_from_meta(const TensorMeta *meta,
     }
     if (count > SIZE_MAX / elem_size) return 0;
     return count * elem_size;
+}
+
+static MeStatus get_tensor_dims(MeTensor t, int32_t *dims, uint32_t *ndim) {
+    if (!t || !dims || !ndim || *ndim == 0) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+    return me_tensor_shape(t, dims, ndim);
+}
+
+static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, MeTensor t) {
+    if (!prog || !meta || !t) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+    if (meta->buffer_id == 0) return ME_STATUS_OK;
+
+    if (meta->data_offset != UINT32_MAX && prog->exec_mem.base) {
+        if (meta->data_offset > prog->exec_mem.capacity ||
+            t->nbytes > prog->exec_mem.capacity - meta->data_offset)
+            return ME_STATUS_ERROR_INVALID_PROGRAM;
+        if (t->owns_data && t->data) {
+            me_free(&prog->runtime->allocator, t->data);
+        }
+        t->data = prog->exec_mem.base + meta->data_offset;
+        t->owns_data = false;
+        return ME_STATUS_OK;
+    }
+
+    if (t->owns_data && t->data) {
+        me_free(&prog->runtime->allocator, t->data);
+        t->data = NULL;
+    }
+    t->data = me_alloc_aligned(&prog->runtime->allocator, t->nbytes, 16);
+    if (!t->data) return ME_STATUS_ERROR_OUT_OF_MEMORY;
+    t->owns_data = true;
+    return ME_STATUS_OK;
+}
+
+static MeStatus apply_runtime_shape_to_tensor(MeProgram prog, MeTensor t,
+                                              const TensorMeta *meta,
+                                              const int32_t *ref_dims,
+                                              uint32_t ref_ndim) {
+    if (!prog || !t || !meta) return ME_STATUS_ERROR_INVALID_ARGUMENT;
+    if (meta->ndim == 0 || meta->ndim > 8) return ME_STATUS_ERROR_UNSUPPORTED;
+    if (meta->shape_offset > prog->int_count ||
+        meta->ndim > prog->int_count - meta->shape_offset)
+        return ME_STATUS_ERROR_INVALID_PROGRAM;
+    if (t->ndim != meta->ndim) return ME_STATUS_ERROR_INVALID_PROGRAM;
+
+    size_t elem_size = me_scalar_type_size(t->dtype);
+    if (elem_size == 0) return ME_STATUS_ERROR_UNSUPPORTED;
+
+    size_t count = 1;
+    for (uint32_t i = 0; i < meta->ndim; ++i) {
+        int32_t dim = prog->int_pool[meta->shape_offset + i];
+        if (dim <= 0) {
+            dim = (i < ref_ndim && ref_dims) ? ref_dims[i] : 1;
+        }
+        if (dim <= 0) return ME_STATUS_ERROR_SHAPE_MISMATCH;
+        t->shape[i] = dim;
+        if (count > SIZE_MAX / (size_t)dim) return ME_STATUS_ERROR_SHAPE_MISMATCH;
+        count *= (size_t)dim;
+    }
+    if (count > SIZE_MAX / elem_size) return ME_STATUS_ERROR_SHAPE_MISMATCH;
+    t->nbytes = count * elem_size;
+    return ME_STATUS_OK;
 }
 
 static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta,
@@ -150,34 +211,18 @@ static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData 
         const TensorMeta *meta = &prog->tensor_pool[ev->payload];
         if (meta->buffer_id == 0)
             continue;
-
-        prog->io_tensors[i]->owns_data = false;
         if (meta->data_offset == UINT32_MAX) {
-            void *ptr = NULL;
-            if (prog->exec_mem.base)
-                ptr = me_arena_alloc(&prog->exec_mem, prog->io_tensors[i]->nbytes, 16);
-            if (!ptr) {
-                ptr = me_alloc_aligned(&prog->runtime->allocator,
-                                       prog->io_tensors[i]->nbytes, 16);
-                if (!ptr) return ME_STATUS_ERROR_OUT_OF_MEMORY;
-                prog->io_tensors[i]->owns_data = true;
+            if (prog->io_tensors[i]->owns_data && prog->io_tensors[i]->data) {
+                me_free(&prog->runtime->allocator, prog->io_tensors[i]->data);
             }
-            prog->io_tensors[i]->data = ptr;
+            prog->io_tensors[i]->data = me_alloc_aligned(
+                &prog->runtime->allocator, prog->io_tensors[i]->nbytes, 16);
+            if (!prog->io_tensors[i]->data) return ME_STATUS_ERROR_OUT_OF_MEMORY;
+            prog->io_tensors[i]->owns_data = true;
             continue;
         }
-        if (prog->exec_mem.base) {
-            if (meta->data_offset > prog->exec_mem.capacity ||
-                prog->io_tensors[i]->nbytes >
-                    prog->exec_mem.capacity - meta->data_offset)
-                return ME_STATUS_ERROR_INVALID_PROGRAM;
-            prog->io_tensors[i]->data = prog->exec_mem.base + meta->data_offset;
-        } else {
-            void *ptr = me_alloc_aligned(&prog->runtime->allocator,
-                                         prog->io_tensors[i]->nbytes, 16);
-            if (!ptr) return ME_STATUS_ERROR_OUT_OF_MEMORY;
-            prog->io_tensors[i]->data = ptr;
-            prog->io_tensors[i]->owns_data = true;
-        }
+        MeStatus s = ensure_tensor_storage(prog, meta, prog->io_tensors[i]);
+        if (s != ME_STATUS_OK) return s;
     }
     return ME_STATUS_OK;
 }
@@ -202,8 +247,6 @@ MeStatus me_executor_run_plan(MeProgram prog, uint32_t plan_idx) {
 
     MeStatus s = ensure_tensor_views(prog, plan);
     if (s != ME_STATUS_OK) return s;
-    s = prepare_runtime_buffers(prog, plan);
-    if (s != ME_STATUS_OK) return s;
 
     for (uint32_t i = 0; i < plan->inputs_count; ++i) {
         uint32_t eidx = (uint32_t)prog->int_pool[plan->inputs_offset + i];
@@ -212,6 +255,27 @@ MeStatus me_executor_run_plan(MeProgram prog, uint32_t plan_idx) {
             return ME_STATUS_ERROR_INVALID_ARGUMENT;
         prog->io_tensors[eidx] = prog->bound_inputs[i];
     }
+
+    int32_t ref_dims[8];
+    uint32_t ref_ndim = 0;
+    if (plan->inputs_count > 0 && prog->bound_inputs && prog->bound_inputs[0]) {
+        ref_ndim = 8;
+        if (get_tensor_dims(prog->bound_inputs[0], ref_dims, &ref_ndim) != ME_STATUS_OK)
+            return ME_STATUS_ERROR_SHAPE_MISMATCH;
+    }
+    for (uint32_t i = 0; i < prog->evalue_count; ++i) {
+        if (!prog->io_tensor_owned[i] || !prog->io_tensors[i]) continue;
+        const EValue *ev = &prog->evalue_pool[i];
+        if (ev->type != EVALUE_TYPE_TENSOR || ev->payload >= prog->tensor_count)
+            return ME_STATUS_ERROR_INVALID_PROGRAM;
+        const TensorMeta *meta = &prog->tensor_pool[ev->payload];
+        s = apply_runtime_shape_to_tensor(prog, prog->io_tensors[i], meta,
+                                          ref_dims, ref_ndim);
+        if (s != ME_STATUS_OK) return s;
+    }
+
+    s = prepare_runtime_buffers(prog, plan);
+    if (s != ME_STATUS_OK) return s;
 
     MeAllocator *a = &prog->runtime->allocator;
     for (uint32_t pc = 0; pc < plan->instructions_count; ++pc) {
@@ -334,11 +398,20 @@ MeStatus me_program_set_input(MeProgram prog, uint32_t index,
         return ME_STATUS_ERROR_INVALID_PROGRAM;
     const TensorMeta *meta = &prog->tensor_pool[ev->payload];
 
-    size_t expected = tensor_nbytes_from_meta(meta, prog->int_pool, prog->int_count);
-    if (expected == 0 || expected != me_tensor_nbytes(tensor))
-        return ME_STATUS_ERROR_SHAPE_MISMATCH;
     if (me_tensor_dtype(tensor) != (MeScalarType)meta->scalar_type)
         return ME_STATUS_ERROR_SHAPE_MISMATCH;
+    uint32_t in_ndim = 8;
+    int32_t in_dims[8];
+    if (get_tensor_dims(tensor, in_dims, &in_ndim) != ME_STATUS_OK)
+        return ME_STATUS_ERROR_SHAPE_MISMATCH;
+    if (in_ndim != meta->ndim) return ME_STATUS_ERROR_SHAPE_MISMATCH;
+    if (meta->shape_offset > prog->int_count ||
+        meta->ndim > prog->int_count - meta->shape_offset)
+        return ME_STATUS_ERROR_INVALID_PROGRAM;
+    for (uint32_t i = 0; i < meta->ndim; ++i) {
+        int32_t md = prog->int_pool[meta->shape_offset + i];
+        if (md > 0 && md != in_dims[i]) return ME_STATUS_ERROR_SHAPE_MISMATCH;
+    }
 
     prog->bound_inputs[index] = tensor;
     return ME_STATUS_OK;
