@@ -1,12 +1,11 @@
 /**
  * @file me_internal.h
- * @brief Internal definitions shared across runtime source files.
+ * @brief 跨运行时源文件共享的内部定义。
  *
- * This header defines the concrete structures behind the opaque handles
- * (MeRuntime_T, MeProgram_T, MeTensor_T) and declares internal sub-system
- * entry points (loader, executor, registry, built-in operators).
+ * 此头文件定义了不透明句柄（MeRuntime_T、MeProgram_T、MeTensor_T）背后的具体结构，
+ * 并声明了内部子系统的入口点（加载器、执行器、注册表、内置算子）。
  *
- * It is NEVER installed as part of the public SDK.
+ * 此文件永远不会作为公共SDK的一部分安装。
  */
 #ifndef ME_INTERNAL_H
 #define ME_INTERNAL_H
@@ -18,19 +17,19 @@
 #include <stdbool.h>
 #include <stdint.h>
 
-/* ---- Operator Registry ------------------------------------------------ */
+/* ---- 算子注册表 ------------------------------------------------ */
 
 typedef struct MeOpEntry {
     uint32_t     hash;
-    const char  *name; /* owned copy of the operator name */
+    const char  *name; /* 算子名称的副本 */
     MeKernelFunc kernel;
 } MeOpEntry;
 
 #define ME_REGISTRY_INIT_CAP 64
 
 /**
- * Open-addressing hash table mapping operator names to kernel functions.
- * Entries with name == NULL are empty slots.
+ * 开放寻址哈希表，将算子名称映射到内核函数。
+ * name == NULL 的条目表示空槽位。
  */
 typedef struct MeOpRegistry {
     MeOpEntry   *entries;
@@ -39,26 +38,58 @@ typedef struct MeOpRegistry {
     MeAllocator *allocator;
 } MeOpRegistry;
 
-MeStatus     me_registry_init(MeOpRegistry *reg, MeAllocator *alloc);
-void         me_registry_destroy(MeOpRegistry *reg);
-MeStatus     me_registry_put(MeOpRegistry *reg, const char *name, MeKernelFunc kernel);
-MeStatus     me_registry_remove(MeOpRegistry *reg, const char *name);
+/**
+ * 初始化算子注册表 使用指定的分配器初始化算子注册表，分配初始容量的条目数组
+ */
+MeStatus me_registry_init(MeOpRegistry *reg, MeAllocator *alloc);
+
+/**
+ * 销毁算子注册表 释放注册表中所有条目名称和条目数组占用的内存
+ */
+void me_registry_destroy(MeOpRegistry *reg);
+
+/**
+ * 向注册表添加算子 将算子名称和对应的内核函数添加到注册表中，支持自动扩容
+ */
+MeStatus me_registry_put(MeOpRegistry *reg, const char *name, MeKernelFunc kernel);
+
+/**
+ * 从注册表移除算子 根据算子名称从注册表中移除对应的条目
+ */
+MeStatus me_registry_remove(MeOpRegistry *reg, const char *name);
+
+/**
+ * 在注册表中查找算子 根据算子名称查找并返回对应的内核函数指针
+ */
 MeKernelFunc me_registry_lookup(const MeOpRegistry *reg, const char *name);
 
-/* ---- Built-in Operator Registration ----------------------------------- */
+/* ---- 内置算子注册 ------------------------------------------- */
 
+/**
+ * 注册所有内置算子 将Conv、Relu、MaxPool等内置算子注册到运行时注册表中
+ */
 MeStatus me_register_builtin_operators(MeRuntime rt);
 
-/* ---- Program Loader --------------------------------------------------- */
+/* ---- 程序加载器 ----------------------------------------------- */
 
+/**
+ * 解析程序二进制数据 解析VM文件格式，提取各个段（字符串池、整数池、张量池等）的信息
+ */
 MeStatus me_loader_parse(MeProgram prog, const void *data, uint32_t size);
+
+/**
+ * 解析算子内核函数 根据算子名称在注册表中查找并绑定对应的内核函数指针
+ */
 MeStatus me_loader_resolve_kernels(MeProgram prog);
 
-/* ---- Executor --------------------------------------------------------- */
+/* ---- 执行器 ------------------------------------------------ */
 
+/**
+ * 执行指定的执行计划 按照执行计划中的指令序列依次执行，处理输入输出张量的绑定
+ */
 MeStatus me_executor_run_plan(MeProgram prog, uint32_t plan_idx);
 
-/* ==== Concrete Handle Structures ======================================= */
+/* ==== 具体句柄结构 ======================================= */
 
 struct MeRuntime_T {
     MeAllocator  allocator;
@@ -69,12 +100,12 @@ struct MeRuntime_T {
 struct MeProgram_T {
     MeRuntime runtime;
 
-    /* Raw binary data (owned if loaded from file / buffer) */
+    /* 原始二进制数据（如果从文件/缓冲区加载则拥有所有权） */
     void    *raw_data;
     uint32_t raw_size;
     bool     owns_data;
 
-    /* Parsed section pointers — point directly into raw_data */
+    /* 解析后的段指针 — 直接指向raw_data中的位置 */
     const VMFileHeader  *header;
     const VMSectionDesc *sections;
     uint32_t             section_count;
@@ -100,18 +131,18 @@ struct MeProgram_T {
     uint32_t plan_count;
     uint32_t weight_size;
 
-    /* Pre-resolved kernel pointers (indexed by operator_pool index) */
+    /* 预解析的内核函数指针（按operator_pool索引） */
     MeKernelFunc *resolved_kernels;
 
-    /* Execution memory pool — sized by ExecutionPlanData.memory_pool_size */
+    /* 执行内存池 — 大小由ExecutionPlanData.memory_pool_size决定 */
     MeArena exec_mem;
 
-    /* Mutable tensor handle array used during execution */
+    /* 执行期间使用的可变张量句柄数组 */
     MeTensor *io_tensors;
     bool     *io_tensor_owned;
     uint32_t  io_tensor_count;
 
-    /* User-bound input / output tensors */
+    /* 用户绑定的输入/输出张量 */
     MeTensor *bound_inputs;
     uint32_t  bound_input_count;
     MeTensor *bound_outputs;

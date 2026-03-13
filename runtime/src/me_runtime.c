@@ -4,10 +4,14 @@
 
 #define ME_VERSION_STRING "0.1.0"
 
-/* ---- Public: Version & Status ----------------------------------------- */
-
+/**
+ * 获取版本字符串 返回MicroExec运行时的版本号字符串
+ */
 const char *me_version_string(void) { return ME_VERSION_STRING; }
 
+/**
+ * 获取状态码描述 根据状态码返回对应的人类可读状态描述字符串
+ */
 const char *me_status_str(MeStatus status) {
     switch (status) {
     case ME_STATUS_OK:
@@ -35,8 +39,9 @@ const char *me_status_str(MeStatus status) {
     }
 }
 
-/* ---- Public: Runtime Lifecycle ---------------------------------------- */
-
+/**
+ * 创建运行时实例 根据配置创建MicroExec运行时实例，初始化算子注册表并注册内置算子
+ */
 MeStatus me_runtime_create(const MeRuntimeConfig *config, MeRuntime *out) {
     if (!out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -54,6 +59,7 @@ MeStatus me_runtime_create(const MeRuntimeConfig *config, MeRuntime *out) {
     MeRuntime rt = (MeRuntime)me_alloc(&alloc, sizeof(struct MeRuntime_T));
     if (!rt)
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
+
     memset(rt, 0, sizeof(*rt));
 
     rt->allocator      = alloc;
@@ -76,6 +82,9 @@ MeStatus me_runtime_create(const MeRuntimeConfig *config, MeRuntime *out) {
     return ME_STATUS_OK;
 }
 
+/**
+ * 销毁运行时实例 销毁MicroExec运行时实例，释放算子注册表和相关资源
+ */
 void me_runtime_destroy(MeRuntime rt) {
     if (!rt)
         return;

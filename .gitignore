@@ -10,5 +10,5 @@ compile_commands.json
 *.elf
 
 # Generated protobuf files
-onnx.pb.h
-onnx.pb.cc
+*.pb.h
+*.pb.cc

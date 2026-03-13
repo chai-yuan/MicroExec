@@ -3,6 +3,9 @@
 #include <stdlib.h>
 #include <string.h>
 
+/**
+ * 从元数据计算张量字节数 根据张量元数据和整数池计算张量所需的总字节数
+ */
 static size_t tensor_nbytes_from_meta(const TensorMeta *meta, const int32_t *int_pool, uint32_t int_count) {
     if (!meta || !int_pool)
         return 0;
@@ -28,12 +31,18 @@ static size_t tensor_nbytes_from_meta(const TensorMeta *meta, const int32_t *int
     return count * elem_size;
 }
 
+/**
+ * 获取张量维度 获取张量的形状维度数组和维度数
+ */
 static MeStatus get_tensor_dims(MeTensor t, int32_t *dims, uint32_t *ndim) {
     if (!t || !dims || !ndim || *ndim == 0)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     return me_tensor_shape(t, dims, ndim);
 }
 
+/**
+ * 确保张量存储 根据元数据确保张量具有适当的存储空间，可能使用执行内存或重新分配
+ */
 static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, MeTensor t) {
     if (!prog || !meta || !t)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -62,6 +71,9 @@ static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, Me
     return ME_STATUS_OK;
 }
 
+/**
+ * 应用运行时形状到张量 根据程序整数池中的形状信息和参考维度调整张量的形状和大小
+ */
 static MeStatus apply_runtime_shape_to_tensor(MeProgram prog, MeTensor t, const TensorMeta *meta,
                                               const int32_t *ref_dims, uint32_t ref_ndim) {
     if (!prog || !t || !meta)
@@ -96,6 +108,9 @@ static MeStatus apply_runtime_shape_to_tensor(MeProgram prog, MeTensor t, const 
     return ME_STATUS_OK;
 }
 
+/**
+ * 创建视图张量 根据元数据创建一个引用外部数据的视图张量，不拥有数据所有权
+ */
 static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta, void *data, MeTensor *out) {
     if (!prog || !meta || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -135,6 +150,9 @@ static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta, void 
     return ME_STATUS_OK;
 }
 
+/**
+ * 检查EValue是否为计划输入 检查指定的EValue索引是否在执行计划的输入列表中
+ */
 static bool evalue_is_plan_input(const ExecutionPlanData *plan, const int32_t *int_pool, uint32_t int_count,
                                  uint32_t evalue_idx) {
     if (!plan || !int_pool)
@@ -148,6 +166,9 @@ static bool evalue_is_plan_input(const ExecutionPlanData *plan, const int32_t *i
     return false;
 }
 
+/**
+ * 确保张量视图 为执行计划中的所有非输入张量EValue创建视图张量
+ */
 static MeStatus ensure_tensor_views(MeProgram prog, const ExecutionPlanData *plan) {
     if (!prog || !plan)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -201,6 +222,9 @@ static MeStatus ensure_tensor_views(MeProgram prog, const ExecutionPlanData *pla
     return ME_STATUS_OK;
 }
 
+/**
+ * 准备运行时缓冲区 初始化或重置执行内存池，并为张量分配或绑定存储空间
+ */
 static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData *plan) {
     if (!prog || !plan)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -245,8 +269,11 @@ static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData 
     return ME_STATUS_OK;
 }
 
-/* ---- Internal: Instruction Dispatch ----------------------------------- */
+/* ---- 内部：指令分发 ----------------------------------- */
 
+/**
+ * 执行指定的执行计划 按照执行计划中的指令序列依次执行，处理输入输出张量的绑定和算子调用
+ */
 MeStatus me_executor_run_plan(MeProgram prog, uint32_t plan_idx) {
     if (!prog || plan_idx >= prog->plan_count)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -396,8 +423,11 @@ MeStatus me_executor_run_plan(MeProgram prog, uint32_t plan_idx) {
     return ME_STATUS_OK;
 }
 
-/* ---- Public: Execution ------------------------------------------------ */
+/* ---- 公共接口：执行 ------------------------------------------------ */
 
+/**
+ * 设置程序输入 将用户提供的张量绑定到程序指定索引的输入位置，验证数据类型和形状匹配
+ */
 MeStatus me_program_set_input(MeProgram prog, uint32_t index, MeTensor tensor) {
     if (!prog || !tensor)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -439,6 +469,9 @@ MeStatus me_program_set_input(MeProgram prog, uint32_t index, MeTensor tensor) {
     return ME_STATUS_OK;
 }
 
+/**
+ * 执行程序 执行程序的入口执行计划，完成整个推理流程
+ */
 MeStatus me_program_execute(MeProgram prog) {
     if (!prog)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -450,6 +483,9 @@ MeStatus me_program_execute(MeProgram prog) {
     return me_executor_run_plan(prog, entry);
 }
 
+/**
+ * 获取程序输出 获取程序执行后指定索引的输出张量
+ */
 MeStatus me_program_get_output(MeProgram prog, uint32_t index, MeTensor *out) {
     if (!prog || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;

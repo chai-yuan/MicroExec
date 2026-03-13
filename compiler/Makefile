@@ -62,7 +62,6 @@ init:
 	@echo "$(COLOR_CYAN)[INIT]$(COLOR_RESET) Generating protobuf files..."
 	@cd $(FRONTEND_DIR) && protoc --cpp_out=. onnx.proto
 	@echo "$(COLOR_GREEN)[SUCCESS]$(COLOR_RESET) Protobuf files generated."
-	@echo "$(COLOR_GREEN)[SUCCESS]$(COLOR_RESET) $(TARGET) built successfully."
 
 clean:
 	@echo "$(COLOR_YELLOW)[CLEAN]$(COLOR_RESET) Removing build artifacts..."

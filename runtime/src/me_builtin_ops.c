@@ -1,9 +1,9 @@
 /**
  * @file me_builtin_ops.c
- * @brief Registers all built-in soft operators into the runtime registry.
+ * @brief 将所有内置软算子注册到运行时注册表中。
  *
- * Operator names must match those emitted by the MicroExec compiler
- * (OperatorDef.name_idx strings in the .mvmp file).
+ * 算子名称必须与MicroExec编译器生成的名称匹配
+ * （.mvmp文件中的OperatorDef.name_idx字符串）。
  */
 #include "me_internal.h"
 #include "soft_operators.h"
@@ -20,6 +20,9 @@ static const BuiltinEntry kBuiltins[] = {
 
 #define ARRAY_LEN(a) (sizeof(a) / sizeof((a)[0]))
 
+/**
+ * 注册所有内置算子 遍历内置算子表并将每个算子注册到运行时注册表中
+ */
 MeStatus me_register_builtin_operators(MeRuntime rt) {
     for (size_t i = 0; i < ARRAY_LEN(kBuiltins); ++i) {
         MeStatus s = me_operator_register(rt, kBuiltins[i].name, kBuiltins[i].kernel);
