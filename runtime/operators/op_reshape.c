@@ -11,12 +11,12 @@ MeStatus me_op_soft_reshape(MeOpContext *ctx) {
     if (!in || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
-    if (me_tensor_nbytes(in) != me_tensor_nbytes(out))
+    if (MeTensor_GetNbytes(in) != MeTensor_GetNbytes(out))
         return ME_STATUS_ERROR_SHAPE_MISMATCH;
-    if (me_tensor_dtype(in) != me_tensor_dtype(out))
+    if (MeTensor_GetDtype(in) != MeTensor_GetDtype(out))
         return ME_STATUS_ERROR_SHAPE_MISMATCH;
 
-    memcpy(me_tensor_data(out), me_tensor_data(in), me_tensor_nbytes(in));
+    memcpy(MeTensor_GetData(out), MeTensor_GetData(in), MeTensor_GetNbytes(in));
 
     return ME_STATUS_OK;
 }

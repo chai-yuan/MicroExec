@@ -19,6 +19,6 @@ typedef enum MeStatus {
 } MeStatus;
 
 /** 将状态码转换为可读字符串 */
-const char *me_status_str(MeStatus status);
+const char *MeStatus_String(MeStatus status);
 
 #endif /* MICROEXEC_ME_STATUS_H */

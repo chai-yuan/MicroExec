@@ -20,12 +20,10 @@ static const BuiltinEntry kBuiltins[] = {
 
 #define ARRAY_LEN(a) (sizeof(a) / sizeof((a)[0]))
 
-/**
- * 注册所有内置算子 遍历内置算子表并将每个算子注册到运行时注册表中
- */
-MeStatus me_register_builtin_operators(MeRuntime rt) {
+// 注册所有内置算子 遍历内置算子表并将每个算子注册到运行时注册表中
+MeStatus pMeRuntime_InitBuiltinOperators(MeRuntime rt) {
     for (size_t i = 0; i < ARRAY_LEN(kBuiltins); ++i) {
-        MeStatus s = me_operator_register(rt, kBuiltins[i].name, kBuiltins[i].kernel);
+        MeStatus s = MeRuntime_Register(rt, kBuiltins[i].name, kBuiltins[i].kernel);
         if (s != ME_STATUS_OK)
             return s;
     }

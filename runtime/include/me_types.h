@@ -32,7 +32,7 @@ typedef enum MeScalarType {
 } MeScalarType;
 
 /** 获取标量类型的字节宽度（未知类型返回 0） */
-static inline size_t me_scalar_type_size(MeScalarType dtype) {
+static inline size_t MeScalarType_Size(MeScalarType dtype) {
     switch (dtype) {
     case ME_SCALAR_FLOAT32:
         return 4;

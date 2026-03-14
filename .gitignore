@@ -1,4 +1,5 @@
 .cache/
+.cargo/
 build/
 
 compile_commands.json

@@ -28,14 +28,14 @@ MeStatus me_op_soft_conv(MeOpContext *ctx) {
     MeTensor y = ctx->outputs[0];
     if (!x || !w || !y)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
-    if (me_tensor_dtype(x) != ME_SCALAR_FLOAT32 || me_tensor_dtype(w) != ME_SCALAR_FLOAT32 ||
-        me_tensor_dtype(y) != ME_SCALAR_FLOAT32)
+    if (MeTensor_GetDtype(x) != ME_SCALAR_FLOAT32 || MeTensor_GetDtype(w) != ME_SCALAR_FLOAT32 ||
+        MeTensor_GetDtype(y) != ME_SCALAR_FLOAT32)
         return ME_STATUS_ERROR_UNSUPPORTED;
 
     int32_t  xs[4], ws[4], ys[4];
     uint32_t xnd = 4, wnd = 4, ynd = 4;
-    if (me_tensor_shape(x, xs, &xnd) != ME_STATUS_OK || me_tensor_shape(w, ws, &wnd) != ME_STATUS_OK ||
-        me_tensor_shape(y, ys, &ynd) != ME_STATUS_OK)
+    if (MeTensor_GetShape(x, xs, &xnd) != ME_STATUS_OK || MeTensor_GetShape(w, ws, &wnd) != ME_STATUS_OK ||
+        MeTensor_GetShape(y, ys, &ynd) != ME_STATUS_OK)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     if (xnd != 4 || wnd != 4 || ynd != 4)
         return ME_STATUS_ERROR_UNSUPPORTED;
@@ -50,10 +50,10 @@ MeStatus me_op_soft_conv(MeOpContext *ctx) {
     if (!infer_conv_params(H, KH, OH, &sh, &ph) || !infer_conv_params(W, KW, OW, &sw, &pw))
         return ME_STATUS_ERROR_UNSUPPORTED;
 
-    const float *xptr = (const float *)me_tensor_data(x);
-    const float *wptr = (const float *)me_tensor_data(w);
-    const float *bptr = b ? (const float *)me_tensor_data(b) : NULL;
-    float       *yptr = (float *)me_tensor_data(y);
+    const float *xptr = (const float *)MeTensor_GetData(x);
+    const float *wptr = (const float *)MeTensor_GetData(w);
+    const float *bptr = b ? (const float *)MeTensor_GetData(b) : NULL;
+    float       *yptr = (float *)MeTensor_GetData(y);
 
     for (int n = 0; n < N; ++n) {
         for (int oc = 0; oc < OC; ++oc) {

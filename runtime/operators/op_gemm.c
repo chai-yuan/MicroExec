@@ -12,14 +12,14 @@ MeStatus me_op_soft_gemm(MeOpContext *ctx) {
     MeTensor Y = ctx->outputs[0];
     if (!A || !B || !Y)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
-    if (me_tensor_dtype(A) != ME_SCALAR_FLOAT32 || me_tensor_dtype(B) != ME_SCALAR_FLOAT32 ||
-        me_tensor_dtype(Y) != ME_SCALAR_FLOAT32)
+    if (MeTensor_GetDtype(A) != ME_SCALAR_FLOAT32 || MeTensor_GetDtype(B) != ME_SCALAR_FLOAT32 ||
+        MeTensor_GetDtype(Y) != ME_SCALAR_FLOAT32)
         return ME_STATUS_ERROR_UNSUPPORTED;
 
     int32_t  a_shape[2], b_shape[2], y_shape[2];
     uint32_t andim = 2, bndim = 2, yndim = 2;
-    if (me_tensor_shape(A, a_shape, &andim) != ME_STATUS_OK || me_tensor_shape(B, b_shape, &bndim) != ME_STATUS_OK ||
-        me_tensor_shape(Y, y_shape, &yndim) != ME_STATUS_OK)
+    if (MeTensor_GetShape(A, a_shape, &andim) != ME_STATUS_OK || MeTensor_GetShape(B, b_shape, &bndim) != ME_STATUS_OK ||
+        MeTensor_GetShape(Y, y_shape, &yndim) != ME_STATUS_OK)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     if (andim != 2 || bndim != 2 || yndim != 2)
         return ME_STATUS_ERROR_UNSUPPORTED;
@@ -40,14 +40,14 @@ MeStatus me_op_soft_gemm(MeOpContext *ctx) {
     if (y_shape[0] != M || y_shape[1] != N)
         return ME_STATUS_ERROR_SHAPE_MISMATCH;
 
-    const float *ap = (const float *)me_tensor_data(A);
-    const float *bp = (const float *)me_tensor_data(B);
-    const float *cp = C ? (const float *)me_tensor_data(C) : NULL;
-    float       *yp = (float *)me_tensor_data(Y);
+    const float *ap = (const float *)MeTensor_GetData(A);
+    const float *bp = (const float *)MeTensor_GetData(B);
+    const float *cp = C ? (const float *)MeTensor_GetData(C) : NULL;
+    float       *yp = (float *)MeTensor_GetData(Y);
 
     int32_t  c_shape[2] = {0, 0};
     uint32_t cndim      = 2;
-    if (C && me_tensor_shape(C, c_shape, &cndim) != ME_STATUS_OK)
+    if (C && MeTensor_GetShape(C, c_shape, &cndim) != ME_STATUS_OK)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     for (int m = 0; m < M; ++m) {
@@ -63,7 +63,7 @@ MeStatus me_op_soft_gemm(MeOpContext *ctx) {
                     acc += cp[n];
                 } else if (cndim == 2 && c_shape[0] == M && c_shape[1] == N) {
                     acc += cp[(size_t)m * N + n];
-                } else if (me_tensor_nbytes(C) == sizeof(float)) {
+                } else if (MeTensor_GetNbytes(C) == sizeof(float)) {
                     acc += cp[0];
                 } else {
                     return ME_STATUS_ERROR_SHAPE_MISMATCH;

@@ -4,15 +4,11 @@
 
 #define ME_VERSION_STRING "0.1.0"
 
-/**
- * 获取版本字符串 返回MicroExec运行时的版本号字符串
- */
-const char *me_version_string(void) { return ME_VERSION_STRING; }
+// 获取版本字符串 返回MicroExec运行时的版本号字符串
+const char *Microexec_Version(void) { return ME_VERSION_STRING; }
 
-/**
- * 获取状态码描述 根据状态码返回对应的人类可读状态描述字符串
- */
-const char *me_status_str(MeStatus status) {
+// 获取状态码描述 根据状态码返回对应的人类可读状态描述字符串
+const char *MeStatus_String(MeStatus status) {
     switch (status) {
     case ME_STATUS_OK:
         return "OK";
@@ -39,21 +35,16 @@ const char *me_status_str(MeStatus status) {
     }
 }
 
-/**
- * 创建运行时实例 根据配置创建MicroExec运行时实例，初始化算子注册表并注册内置算子
- */
-MeStatus me_runtime_create(const MeRuntimeConfig *config, MeRuntime *out) {
+// 创建运行时实例 根据配置创建MicroExec运行时实例，初始化算子注册表并注册内置算子
+MeStatus MeRuntime_Create(const MeRuntimeConfig *config, MeRuntime *out) {
     if (!out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     MeAllocator alloc;
-    bool        owns = false;
-
     if (config && config->allocator) {
         alloc = *config->allocator;
     } else {
         me_default_alloc_init(&alloc);
-        owns = true;
     }
 
     MeRuntime rt = (MeRuntime)me_alloc(&alloc, sizeof(struct MeRuntime_T));
@@ -61,19 +52,17 @@ MeStatus me_runtime_create(const MeRuntimeConfig *config, MeRuntime *out) {
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
 
     memset(rt, 0, sizeof(*rt));
+    rt->allocator = alloc;
 
-    rt->allocator      = alloc;
-    rt->owns_allocator = owns;
-
-    MeStatus s = me_registry_init(&rt->op_registry, &rt->allocator);
+    MeStatus s = pMeOpRegistry_Init(&rt->op_registry, &rt->allocator);
     if (s != ME_STATUS_OK) {
         me_free(&alloc, rt);
         return s;
     }
 
-    s = me_register_builtin_operators(rt);
+    s = pMeRuntime_InitBuiltinOperators(rt);
     if (s != ME_STATUS_OK) {
-        me_registry_destroy(&rt->op_registry);
+        pMeOpRegistry_Destroy(&rt->op_registry);
         me_free(&alloc, rt);
         return s;
     }
@@ -82,13 +71,11 @@ MeStatus me_runtime_create(const MeRuntimeConfig *config, MeRuntime *out) {
     return ME_STATUS_OK;
 }
 
-/**
- * 销毁运行时实例 销毁MicroExec运行时实例，释放算子注册表和相关资源
- */
-void me_runtime_destroy(MeRuntime rt) {
+// 销毁运行时实例 销毁MicroExec运行时实例，释放算子注册表和相关资源
+void MeRuntime_Destroy(MeRuntime rt) {
     if (!rt)
         return;
-    me_registry_destroy(&rt->op_registry);
+    pMeOpRegistry_Destroy(&rt->op_registry);
     MeAllocator a = rt->allocator;
     me_free(&a, rt);
 }

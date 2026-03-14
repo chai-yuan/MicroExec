@@ -4,9 +4,7 @@
 
 /* FNV-1a哈希算法 */
 
-/**
- * 计算字符串哈希值 使用FNV-1a算法计算字符串的32位哈希值
- */
+// 计算字符串哈希值 使用FNV-1a算法计算字符串的32位哈希值
 static uint32_t hash_str(const char *s) {
     uint32_t h = 2166136261u;
     for (; *s; ++s)
@@ -14,9 +12,7 @@ static uint32_t hash_str(const char *s) {
     return h;
 }
 
-/**
- * 复制字符串 使用指定分配器分配内存并复制字符串内容
- */
+// 复制字符串 使用指定分配器分配内存并复制字符串内容
 static char *dup_str(MeAllocator *a, const char *s) {
     size_t len = strlen(s) + 1;
     char  *d   = (char *)me_alloc(a, len);
@@ -27,10 +23,8 @@ static char *dup_str(MeAllocator *a, const char *s) {
 
 /* ---- 注册表生命周期 ----------------------------------------------- */
 
-/**
- * 初始化算子注册表 使用指定分配器初始化算子注册表，分配初始容量的条目数组
- */
-MeStatus me_registry_init(MeOpRegistry *reg, MeAllocator *alloc) {
+// 初始化算子注册表 使用指定分配器初始化算子注册表，分配初始容量的条目数组
+MeStatus pMeOpRegistry_Init(MeOpRegistry *reg, MeAllocator *alloc) {
     if (!reg || !alloc)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
@@ -47,10 +41,8 @@ MeStatus me_registry_init(MeOpRegistry *reg, MeAllocator *alloc) {
     return ME_STATUS_OK;
 }
 
-/**
- * 销毁算子注册表 释放注册表中所有条目名称和条目数组占用的内存
- */
-void me_registry_destroy(MeOpRegistry *reg) {
+// 销毁算子注册表 释放注册表中所有条目名称和条目数组占用的内存
+void pMeOpRegistry_Destroy(MeOpRegistry *reg) {
     if (!reg || !reg->entries)
         return;
     for (uint32_t i = 0; i < reg->capacity; ++i) {
@@ -65,9 +57,7 @@ void me_registry_destroy(MeOpRegistry *reg) {
 
 /* ---- 内部辅助函数 ------------------------------------------------- */
 
-/**
- * 扩展注册表容量 将注册表容量翻倍，重新哈希所有现有条目到新数组
- */
+// 扩展注册表容量 将注册表容量翻倍，重新哈希所有现有条目到新数组
 static MeStatus registry_grow(MeOpRegistry *reg) {
     uint32_t new_cap  = reg->capacity * 2;
     size_t   new_size = new_cap * sizeof(MeOpEntry);
@@ -95,10 +85,8 @@ static MeStatus registry_grow(MeOpRegistry *reg) {
 
 /* ---- 公共操作 ----------------------------------------------- */
 
-/**
- * 向注册表添加算子 将算子名称和对应的内核函数添加到注册表中，支持自动扩容
- */
-MeStatus me_registry_put(MeOpRegistry *reg, const char *name, MeKernelFunc kernel) {
+// 向注册表添加算子 将算子名称和对应的内核函数添加到注册表中，支持自动扩容
+MeStatus pMeOpRegistry_Put(MeOpRegistry *reg, const char *name, MeKernelFunc kernel) {
     if (!reg || !name || !kernel)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
@@ -132,10 +120,8 @@ MeStatus me_registry_put(MeOpRegistry *reg, const char *name, MeKernelFunc kerne
     return ME_STATUS_OK;
 }
 
-/**
- * 从注册表移除算子 根据算子名称从注册表中移除对应的条目
- */
-MeStatus me_registry_remove(MeOpRegistry *reg, const char *name) {
+// 从注册表移除算子 根据算子名称从注册表中移除对应的条目
+MeStatus pMeOpRegistry_Remove(MeOpRegistry *reg, const char *name) {
     if (!reg || !name)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
@@ -156,10 +142,8 @@ MeStatus me_registry_remove(MeOpRegistry *reg, const char *name) {
     return ME_STATUS_ERROR_OPERATOR_NOT_FOUND;
 }
 
-/**
- * 在注册表中查找算子 根据算子名称查找并返回对应的内核函数指针
- */
-MeKernelFunc me_registry_lookup(const MeOpRegistry *reg, const char *name) {
+// 在注册表中查找算子 根据算子名称查找并返回对应的内核函数指针
+MeKernelFunc pMeOpRegistry_Lookup(const MeOpRegistry *reg, const char *name) {
     if (!reg || !name)
         return NULL;
 
@@ -177,20 +161,16 @@ MeKernelFunc me_registry_lookup(const MeOpRegistry *reg, const char *name) {
 
 /* ---- 公共包装函数（转发到注册表） ---------------------------- */
 
-/**
- * 注册算子 将算子注册到运行时的算子注册表中
- */
-MeStatus me_operator_register(MeRuntime rt, const char *op_name, MeKernelFunc kernel) {
+// 注册算子 将算子注册到运行时的算子注册表中
+MeStatus MeRuntime_Register(MeRuntime rt, const char *op_name, MeKernelFunc kernel) {
     if (!rt)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
-    return me_registry_put(&rt->op_registry, op_name, kernel);
+    return pMeOpRegistry_Put(&rt->op_registry, op_name, kernel);
 }
 
-/**
- * 注销算子 从运行时的算子注册表中移除指定算子
- */
-MeStatus me_operator_unregister(MeRuntime rt, const char *op_name) {
+// 注销算子 从运行时的算子注册表中移除指定算子
+MeStatus MeRuntime_Unregister(MeRuntime rt, const char *op_name) {
     if (!rt)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
-    return me_registry_remove(&rt->op_registry, op_name);
+    return pMeOpRegistry_Remove(&rt->op_registry, op_name);
 }

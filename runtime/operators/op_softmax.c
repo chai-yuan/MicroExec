@@ -11,19 +11,19 @@ MeStatus me_op_soft_softmax(MeOpContext *ctx) {
     MeTensor out = ctx->outputs[0];
     if (!in || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
-    if (me_tensor_dtype(in) != ME_SCALAR_FLOAT32 || me_tensor_dtype(out) != ME_SCALAR_FLOAT32)
+    if (MeTensor_GetDtype(in) != ME_SCALAR_FLOAT32 || MeTensor_GetDtype(out) != ME_SCALAR_FLOAT32)
         return ME_STATUS_ERROR_UNSUPPORTED;
-    if (me_tensor_nbytes(in) != me_tensor_nbytes(out))
+    if (MeTensor_GetNbytes(in) != MeTensor_GetNbytes(out))
         return ME_STATUS_ERROR_SHAPE_MISMATCH;
 
     uint32_t ndim = 0;
-    if (me_tensor_shape(in, NULL, &ndim) != ME_STATUS_OK || ndim == 0)
+    if (MeTensor_GetShape(in, NULL, &ndim) != ME_STATUS_OK || ndim == 0)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     int32_t shape[8];
     if (ndim > 8)
         return ME_STATUS_ERROR_UNSUPPORTED;
     uint32_t cap = ndim;
-    if (me_tensor_shape(in, shape, &cap) != ME_STATUS_OK)
+    if (MeTensor_GetShape(in, shape, &cap) != ME_STATUS_OK)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     size_t inner = (size_t)shape[ndim - 1];
@@ -33,8 +33,8 @@ MeStatus me_op_soft_softmax(MeOpContext *ctx) {
     for (uint32_t i = 0; i + 1 < ndim; ++i)
         outer *= (size_t)shape[i];
 
-    const float *src = (const float *)me_tensor_data(in);
-    float       *dst = (float *)me_tensor_data(out);
+    const float *src = (const float *)MeTensor_GetData(in);
+    float       *dst = (float *)MeTensor_GetData(out);
     for (size_t o = 0; o < outer; ++o) {
         const float *row     = src + o * inner;
         float       *out_row = dst + o * inner;

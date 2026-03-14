@@ -41,13 +41,13 @@ MeStatus me_op_soft_maxpool(MeOpContext *ctx) {
     MeTensor out = ctx->outputs[0];
     if (!in || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
-    if (me_tensor_dtype(in) != ME_SCALAR_FLOAT32 || me_tensor_dtype(out) != ME_SCALAR_FLOAT32)
+    if (MeTensor_GetDtype(in) != ME_SCALAR_FLOAT32 || MeTensor_GetDtype(out) != ME_SCALAR_FLOAT32)
         return ME_STATUS_ERROR_UNSUPPORTED;
 
     int32_t  in_shape[4], out_shape[4];
     uint32_t in_ndim = 4, out_ndim = 4;
-    if (me_tensor_shape(in, in_shape, &in_ndim) != ME_STATUS_OK ||
-        me_tensor_shape(out, out_shape, &out_ndim) != ME_STATUS_OK)
+    if (MeTensor_GetShape(in, in_shape, &in_ndim) != ME_STATUS_OK ||
+        MeTensor_GetShape(out, out_shape, &out_ndim) != ME_STATUS_OK)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     if (in_ndim != 4 || out_ndim != 4)
         return ME_STATUS_ERROR_UNSUPPORTED;
@@ -61,8 +61,8 @@ MeStatus me_op_soft_maxpool(MeOpContext *ctx) {
     int kw = 0, sw = 0, pw = 0;
     if (!infer_pool_params(H, OH, &kh, &sh, &ph) || !infer_pool_params(W, OW, &kw, &sw, &pw))
         return ME_STATUS_ERROR_UNSUPPORTED;
-    const float *src = (const float *)me_tensor_data(in);
-    float       *dst = (float *)me_tensor_data(out);
+    const float *src = (const float *)MeTensor_GetData(in);
+    float       *dst = (float *)MeTensor_GetData(out);
     for (int n = 0; n < N; ++n) {
         for (int c = 0; c < C; ++c) {
             for (int oh = 0; oh < OH; ++oh) {
