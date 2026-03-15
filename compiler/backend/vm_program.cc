@@ -45,15 +45,14 @@ static std::vector<uint8_t> BuildStringSection(const std::vector<std::string> &p
     return out;
 }
 
-// 将 int64 维度值归一化为 uint32，负值或溢出时返回最大值。
+// 将 int64 维度值归一化为 int32 后按二进制存入 uint32。
+// 负值 -x 表示有界动态维度（最大值为 x），符号保留以便运行时区分静态/动态维度。
 static uint32_t NormalizeDimToU32(int64_t dim) {
-    if (dim < 0) {
-        return std::numeric_limits<uint32_t>::max();
-    }
-    if (static_cast<uint64_t>(dim) > std::numeric_limits<uint32_t>::max()) {
-        return std::numeric_limits<uint32_t>::max();
-    }
-    return static_cast<uint32_t>(dim);
+    if (dim > static_cast<int64_t>(std::numeric_limits<int32_t>::max()))
+        return static_cast<uint32_t>(std::numeric_limits<int32_t>::max());
+    if (dim < static_cast<int64_t>(std::numeric_limits<int32_t>::min()))
+        return static_cast<uint32_t>(std::numeric_limits<int32_t>::min());
+    return static_cast<uint32_t>(static_cast<int32_t>(dim));
 }
 
 // 将执行操作类型转换为对应的 VM 操作码。
@@ -100,6 +99,9 @@ static uint32_t ToVMTensorScalarType(DataType dtype) {
 static uint32_t ToVMTensorShapeDynamism(const ExecValue &value) {
     if (value.deferred_runtime_alloc) {
         return VM_TENSOR_SHAPE_DYNAMIC_UNBOUND;
+    }
+    if (value.has_dynamic_bound_dims) {
+        return VM_TENSOR_SHAPE_DYNAMIC_BOUND;
     }
     return VM_TENSOR_SHAPE_STATIC;
 }

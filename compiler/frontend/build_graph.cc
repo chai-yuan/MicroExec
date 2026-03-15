@@ -32,7 +32,8 @@ static DataType OnnxTypeToDataType(int32_t onnx_type) {
 }
 
 // 将ONNX ValueInfo的shape和type信息合并到Edge中
-static void MergeShapeAndType(const onnx::ValueInfoProto &value_info, Edge *edge) {
+// max_dynamic_size: 动态维度的最大值上界（正数），动态维度将存储为 -max_dynamic_size
+static void MergeShapeAndType(const onnx::ValueInfoProto &value_info, Edge *edge, int64_t max_dynamic_size) {
     if (edge == nullptr) {
         return;
     }
@@ -54,8 +55,8 @@ static void MergeShapeAndType(const onnx::ValueInfoProto &value_info, Edge *edge
             if (dim.has_dim_value()) {
                 edge->shape.push_back(dim.dim_value());
             } else {
-                // 如果是 dim_param (字符串) 或缺失，通常表示动态维度
-                edge->shape.push_back(-1);
+                // 动态维度：-x 表示最大值为 x 的有界动态维度
+                edge->shape.push_back(-max_dynamic_size);
             }
         }
         edge->has_shape = true;
@@ -214,7 +215,7 @@ int Graph::BuildFromONNX(const std::string &file_name) {
             return -1;
         }
 
-        MergeShapeAndType(onnx_input, edge);
+        MergeShapeAndType(onnx_input, edge, default_max_dynamic_size_);
 
         // 我们只把非 constant 的 edge 加入到图的逻辑输入中。
         if (!edge->is_constant) {
@@ -271,7 +272,7 @@ int Graph::BuildFromONNX(const std::string &file_name) {
             return -1;
         }
 
-        MergeShapeAndType(onnx_output, edge);
+        MergeShapeAndType(onnx_output, edge, default_max_dynamic_size_);
         edge->is_graph_output = true;
         this->graph_outputs.push_back(edge);
     }
@@ -281,7 +282,7 @@ int Graph::BuildFromONNX(const std::string &file_name) {
         const onnx::ValueInfoProto &value_info = onnx_graph.value_info(i);
         if (edge_symbol_table.find(value_info.name()) != edge_symbol_table.end()) {
             Edge *edge = edge_symbol_table[value_info.name()];
-            MergeShapeAndType(value_info, edge);
+            MergeShapeAndType(value_info, edge, default_max_dynamic_size_);
         }
     }
 

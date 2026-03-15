@@ -39,7 +39,18 @@ static uint64_t DataTypeSize(DataType dtype) {
     }
 }
 
-// 计算张量的总字节数（根据数据类型和形状）
+// 检查形状是否包含有界动态维度（负值 -x 表示最大为 x）
+static bool HasDynamicDims(const std::vector<int64_t> &shape) {
+    for (int64_t dim : shape) {
+        if (dim < 0) {
+            return true;
+        }
+    }
+    return false;
+}
+
+// 计算张量的最大字节数（根据数据类型和形状）
+// 对于有界动态维度（dim < 0），使用 abs(dim) 作为最大值参与计算
 static uint64_t ComputeTensorBytes(DataType dtype, const std::vector<int64_t> &shape) {
     if (shape.empty() || dtype == DataType::UNKNOWN) {
         return 0;
@@ -47,10 +58,11 @@ static uint64_t ComputeTensorBytes(DataType dtype, const std::vector<int64_t> &s
     uint64_t elem_size    = DataTypeSize(dtype);
     uint64_t num_elements = 1;
     for (int64_t dim : shape) {
-        if (dim <= 0) {
-            return 0; // 含动态维度，编译期无法确定大小
+        if (dim == 0) {
+            return 0;
         }
-        num_elements *= static_cast<uint64_t>(dim);
+        int64_t abs_dim = (dim < 0) ? -dim : dim;
+        num_elements *= static_cast<uint64_t>(abs_dim);
     }
     return num_elements * elem_size;
 }
@@ -97,12 +109,13 @@ int ExecProgram::BuildFromGraph(const Graph &graph) {
     // --- 阶段 1：为图输入创建 ExecValue ---
     for (const Edge *edge : graph_inputs) {
         ExecValue val;
-        val.id          = value_id_counter_++;
-        val.kind        = ExecValueKind::INPUT;
-        val.dtype       = edge->dtype;
-        val.shape       = edge->shape;
-        val.size_bytes  = ComputeTensorBytes(edge->dtype, edge->shape);
-        val.source_edge = edge;
+        val.id                     = value_id_counter_++;
+        val.kind                   = ExecValueKind::INPUT;
+        val.dtype                  = edge->dtype;
+        val.shape                  = edge->shape;
+        val.size_bytes             = ComputeTensorBytes(edge->dtype, edge->shape);
+        val.has_dynamic_bound_dims = HasDynamicDims(edge->shape);
+        val.source_edge            = edge;
         values_.push_back(val);
         edge_to_value[edge] = val.id;
         input_value_ids_.push_back(val.id);
@@ -186,12 +199,13 @@ int ExecProgram::BuildFromGraph(const Graph &graph) {
                 continue;
             }
             ExecValue val;
-            val.id          = value_id_counter_++;
-            val.kind        = ExecValueKind::INTERMEDIATE;
-            val.dtype       = out_edge->dtype;
-            val.shape       = out_edge->shape;
-            val.size_bytes  = ComputeTensorBytes(out_edge->dtype, out_edge->shape);
-            val.source_edge = out_edge;
+            val.id                     = value_id_counter_++;
+            val.kind                   = ExecValueKind::INTERMEDIATE;
+            val.dtype                  = out_edge->dtype;
+            val.shape                  = out_edge->shape;
+            val.size_bytes             = ComputeTensorBytes(out_edge->dtype, out_edge->shape);
+            val.has_dynamic_bound_dims = HasDynamicDims(out_edge->shape);
+            val.source_edge            = out_edge;
             values_.push_back(val);
             edge_to_value[out_edge] = val.id;
         }
@@ -476,14 +490,15 @@ void ExecProgram::Dump() const {
     LOG_INFO("--- Values ---");
     for (const ExecValue &val : values_) {
         const char *edge_name = val.source_edge ? val.source_edge->name.c_str() : "(none)";
+        const char *dyn_tag   = val.has_dynamic_bound_dims ? " [dyn-bound]" : "";
         if (val.deferred_runtime_alloc) {
             LOG_INFO("  v%-4u  %-5s  size=dynamic    life=[%u, %u]  buf=%u off=deferred  sym=\"%s\"  edge=\"%s\"",
                      val.id, ExecValueKindStr(val.kind), val.first_def, val.last_use, val.buffer_id,
                      val.dynamic_alloc_symbol.c_str(), edge_name);
         } else {
-            LOG_INFO("  v%-4u  %-5s  size=%-10lu  life=[%u, %u]  buf=%u off=%-8lu  edge=\"%s\"", val.id,
+            LOG_INFO("  v%-4u  %-5s  size=%-10lu  life=[%u, %u]  buf=%u off=%-8lu%s  edge=\"%s\"", val.id,
                      ExecValueKindStr(val.kind), (unsigned long)val.size_bytes, val.first_def, val.last_use,
-                     val.buffer_id, (unsigned long)val.offset, edge_name);
+                     val.buffer_id, (unsigned long)val.offset, dyn_tag, edge_name);
         }
     }
 
@@ -513,5 +528,10 @@ void ExecProgram::Dump() const {
     LOG_INFO("  Constant pool: %lu bytes", (unsigned long)memory_plan_.constant_pool_size);
     LOG_INFO("  Runtime pool:  %lu bytes", (unsigned long)memory_plan_.runtime_pool_size);
     LOG_INFO("  Deferred runtime values: %zu", memory_plan_.deferred_runtime_value_ids.size());
+
+    uint64_t total_memory = memory_plan_.constant_pool_size + memory_plan_.runtime_pool_size;
+    LOG_INFO("--- Memory Summary ---");
+    LOG_INFO("  Total max memory required: %lu bytes (%.2f KB / %.2f MB)", (unsigned long)total_memory,
+             total_memory / 1024.0, total_memory / (1024.0 * 1024.0));
     LOG_INFO("=== End Dump ===");
 }

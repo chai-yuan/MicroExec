@@ -39,26 +39,14 @@ static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, Me
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     if (meta->buffer_id == 0)
         return ME_STATUS_OK;
-
-    if (meta->data_offset != UINT32_MAX && prog->exec_mem.base) {
-        if (meta->data_offset > prog->exec_mem.capacity || t->nbytes > prog->exec_mem.capacity - meta->data_offset)
-            return ME_STATUS_ERROR_INVALID_PROGRAM;
-        if (t->owns_data && t->data) {
-            me_free(t->data);
-        }
-        t->data      = prog->exec_mem.base + meta->data_offset;
-        t->owns_data = false;
-        return ME_STATUS_OK;
-    }
-
-    if (t->owns_data && t->data) {
+    if (meta->data_offset == UINT32_MAX || !prog->exec_mem.base)
+        return ME_STATUS_ERROR_INVALID_PROGRAM;
+    if (meta->data_offset > prog->exec_mem.capacity || t->nbytes > prog->exec_mem.capacity - meta->data_offset)
+        return ME_STATUS_ERROR_INVALID_PROGRAM;
+    if (t->owns_data && t->data)
         me_free(t->data);
-        t->data = NULL;
-    }
-    t->data = me_alloc_aligned(t->nbytes, 16);
-    if (!t->data)
-        return ME_STATUS_ERROR_OUT_OF_MEMORY;
-    t->owns_data = true;
+    t->data      = prog->exec_mem.base + meta->data_offset;
+    t->owns_data = false;
     return ME_STATUS_OK;
 }
 
@@ -210,8 +198,6 @@ static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData 
             MeStatus s = MeArena_Init(&prog->exec_mem, (size_t)plan->memory_pool_size);
             if (s != ME_STATUS_OK)
                 return s;
-        } else {
-            MeArena_Reset(&prog->exec_mem);
         }
     }
 
@@ -224,16 +210,6 @@ static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData 
         const TensorMeta *meta = &prog->tensor_pool[ev->payload];
         if (meta->buffer_id == 0)
             continue;
-        if (meta->data_offset == UINT32_MAX) {
-            if (prog->io_tensors[i]->owns_data && prog->io_tensors[i]->data) {
-                me_free(prog->io_tensors[i]->data);
-            }
-            prog->io_tensors[i]->data = me_alloc_aligned(prog->io_tensors[i]->nbytes, 16);
-            if (!prog->io_tensors[i]->data)
-                return ME_STATUS_ERROR_OUT_OF_MEMORY;
-            prog->io_tensors[i]->owns_data = true;
-            continue;
-        }
         MeStatus s = ensure_tensor_storage(prog, meta, prog->io_tensors[i]);
         if (s != ME_STATUS_OK)
             return s;

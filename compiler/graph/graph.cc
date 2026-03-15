@@ -97,17 +97,21 @@ static bool InferConvLikeOutput(const std::vector<int64_t> &input_shape, int64_t
         const int64_t stride   = (i < strides.size() && strides[i] > 0) ? strides[i] : 1;
         const int64_t dilation = (i < dilations.size() && dilations[i] > 0) ? dilations[i] : 1;
 
-        if (in_dim <= 0) {
-            (*out_shape)[2 + i] = -1;
+        if (in_dim == 0) {
+            (*out_shape)[2 + i] = 0;
             continue;
         }
 
+        const bool    is_dynamic = (in_dim < 0);
+        const int64_t abs_in_dim = is_dynamic ? -in_dim : in_dim;
+
         const int64_t effective_kernel = dilation * (k_dim - 1) + 1;
-        const int64_t numerator        = in_dim + pad_l + pad_r - effective_kernel;
+        const int64_t numerator        = abs_in_dim + pad_l + pad_r - effective_kernel;
         if (numerator < 0) {
             return false;
         }
-        (*out_shape)[2 + i] = numerator / stride + 1;
+        int64_t out_dim     = numerator / stride + 1;
+        (*out_shape)[2 + i] = is_dynamic ? -out_dim : out_dim;
     }
     return true;
 }
@@ -119,13 +123,17 @@ static bool InferReshapeOutput(const std::vector<int64_t> &input_shape, const st
         return false;
     }
     bool    input_elems_known = true;
+    bool    input_has_dynamic = false;
     int64_t input_elems       = 1;
     for (int64_t d : input_shape) {
-        if (d <= 0) {
+        if (d < 0) {
+            input_has_dynamic = true;
+            input_elems *= (-d);
+        } else if (d == 0) {
             input_elems_known = false;
-            continue;
+        } else {
+            input_elems *= d;
         }
-        input_elems *= d;
     }
 
     out_shape->clear();
@@ -159,11 +167,12 @@ static bool InferReshapeOutput(const std::vector<int64_t> &input_shape, const st
             if (known_product <= 0 || input_elems % known_product != 0) {
                 return false;
             }
-            (*out_shape)[static_cast<size_t>(infer_index)] = input_elems / known_product;
+            int64_t inferred                               = input_elems / known_product;
+            (*out_shape)[static_cast<size_t>(infer_index)] = input_has_dynamic ? -inferred : inferred;
         } else {
             (*out_shape)[static_cast<size_t>(infer_index)] = -1;
         }
-    } else if (input_elems_known && known_product != input_elems) {
+    } else if (input_elems_known && !input_has_dynamic && known_product != input_elems) {
         return false;
     }
     return true;
@@ -303,7 +312,7 @@ static bool InferNodeShape(Node *node) {
         }
 
         Edge *out      = node->output_edges[0];
-        out->shape     = {(a_m > 0 ? a_m : -1), (b_n > 0 ? b_n : -1)};
+        out->shape     = {a_m, b_n};
         out->has_shape = true;
         if (!out->has_dtype) {
             out->dtype     = node->input_edges[0]->dtype;

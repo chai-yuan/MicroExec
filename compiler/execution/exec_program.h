@@ -30,6 +30,8 @@ struct ExecValue {
     uint64_t offset      = 0;
     uint64_t size_bytes  = 0;
     bool     mem_planned = false;
+    // 含有界动态维度（shape 中存在负值 -x，表示最大为 x）
+    bool has_dynamic_bound_dims = false;
     // 动态张量在编译期无法确定具体字节数，运行时需按符号信息延迟分配
     bool        deferred_runtime_alloc = false;
     std::string dynamic_alloc_symbol;

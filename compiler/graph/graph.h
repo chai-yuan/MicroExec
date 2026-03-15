@@ -58,6 +58,9 @@ class Graph {
     Node *CreateNode(const std::string &op_type, const std::string &name);
     Edge *CreateEdge(const std::string &name);
 
+    void    SetDefaultMaxDynamicSize(int64_t v) { default_max_dynamic_size_ = v; }
+    int64_t GetDefaultMaxDynamicSize() const { return default_max_dynamic_size_; }
+
     const std::vector<Node *> &GetNodes() const { return nodes; }
     const std::vector<Edge *> &GetEdges() const { return edges; }
     const std::vector<Edge *> &GetGraphInputs() const { return graph_inputs; }
@@ -74,6 +77,8 @@ class Graph {
         std::vector<std::unique_ptr<Edge>> edge_storage;
     };
     Arena arena;
+
+    int64_t default_max_dynamic_size_ = 4;
 
     uint32_t node_id_counter = 0;
     uint32_t edge_id_counter = 0;
