@@ -7,9 +7,6 @@
  *
  *   MeArena     – 线性递增分配器，仅支持批量释放。
  *                 用于执行内存池，其总大小在程序加载时已知。
- *
- *   MeBlockPool – 固定块大小的空闲列表分配器，分配/释放时间复杂度为O(1)。
- *                 用于统一大小的结构（如EValue槽位）。
  */
 #ifndef ME_MEMORY_H
 #define ME_MEMORY_H
@@ -69,20 +66,5 @@ void    *MeArena_Alloc(MeArena *arena, size_t size, size_t alignment);
 void     MeArena_Reset(MeArena *arena);
 
 static inline size_t MeArena_Used(const MeArena *arena) { return arena->offset; }
-
-/* ---- 块池（固定大小空闲列表） -------------------------------- */
-
-typedef struct MeBlockPool {
-    uint8_t  *base;
-    size_t    block_size;
-    uint32_t  block_count;
-    uint32_t *free_stack;
-    uint32_t  free_top;
-} MeBlockPool;
-
-MeStatus MeBlockPool_Init(MeBlockPool *pool, size_t block_size, uint32_t block_count);
-void     MeBlockPool_Destroy(MeBlockPool *pool);
-void    *MeBlockPool_Alloc(MeBlockPool *pool);
-void     MeBlockPool_Free(MeBlockPool *pool, void *ptr);
 
 #endif /* ME_MEMORY_H */
