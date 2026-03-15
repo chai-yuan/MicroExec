@@ -1,8 +1,16 @@
+/**
+ * @file me_executor.c
+ * @brief MicroExec运行时执行器核心实现。
+ *
+ * 负责执行编译后的执行计划，管理张量生命周期，调度算子内核。
+ */
+
 #include "me_internal.h"
 #include <limits.h>
 #include <stdlib.h>
 #include <string.h>
 
+/** 根据TensorMeta计算张量所需的字节数。 */
 static size_t tensor_nbytes_from_meta(const TensorMeta *meta, const int32_t *int_pool, uint32_t int_count) {
     if (!meta || !int_pool)
         return 0;
@@ -28,12 +36,14 @@ static size_t tensor_nbytes_from_meta(const TensorMeta *meta, const int32_t *int
     return count * elem_size;
 }
 
+/** 获取张量的维度信息。 */
 static MeStatus get_tensor_dims(MeTensor t, int32_t *dims, uint32_t *ndim) {
     if (!t || !dims || !ndim || *ndim == 0)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     return MeTensor_GetShape(t, dims, ndim);
 }
 
+/** 确保张量存储空间已正确分配或绑定到执行内存。 */
 static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, MeTensor t) {
     if (!prog || !meta || !t)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -50,6 +60,7 @@ static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, Me
     return ME_STATUS_OK;
 }
 
+/** 将运行时动态形状应用到张量。 */
 static MeStatus apply_runtime_shape_to_tensor(MeProgram prog, MeTensor t, const TensorMeta *meta,
                                               const int32_t *ref_dims, uint32_t ref_ndim) {
     if (!prog || !t || !meta)
@@ -84,6 +95,7 @@ static MeStatus apply_runtime_shape_to_tensor(MeProgram prog, MeTensor t, const 
     return ME_STATUS_OK;
 }
 
+/** 创建一个视图张量，不拥有数据所有权。 */
 static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta, void *data, MeTensor *out) {
     if (!prog || !meta || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -121,6 +133,7 @@ static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta, void 
     return ME_STATUS_OK;
 }
 
+/** 检查指定的EValue索引是否为执行计划的输入。 */
 static bool evalue_is_plan_input(const ExecutionPlanData *plan, const int32_t *int_pool, uint32_t int_count,
                                  uint32_t evalue_idx) {
     if (!plan || !int_pool)
@@ -134,6 +147,7 @@ static bool evalue_is_plan_input(const ExecutionPlanData *plan, const int32_t *i
     return false;
 }
 
+/** 确保所有张量视图已创建，为张量分配IO张量数组。 */
 static MeStatus ensure_tensor_views(MeProgram prog, const ExecutionPlanData *plan) {
     if (!prog || !plan)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -185,6 +199,7 @@ static MeStatus ensure_tensor_views(MeProgram prog, const ExecutionPlanData *pla
     return ME_STATUS_OK;
 }
 
+/** 准备运行时缓冲区，初始化或调整执行内存池大小。 */
 static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData *plan) {
     if (!prog || !plan)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -217,6 +232,7 @@ static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData 
     return ME_STATUS_OK;
 }
 
+/** 执行指定的执行计划。 */
 MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
     if (!prog || plan_idx >= prog->plan_count)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -366,6 +382,7 @@ MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
     return ME_STATUS_OK;
 }
 
+/** 为程序设置输入张量，进行形状和类型校验。 */
 MeStatus MeProgram_SetInput(MeProgram prog, uint32_t index, MeTensor tensor) {
     if (!prog || !tensor)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -407,6 +424,7 @@ MeStatus MeProgram_SetInput(MeProgram prog, uint32_t index, MeTensor tensor) {
     return ME_STATUS_OK;
 }
 
+/** 执行程序的入口执行计划。 */
 MeStatus MeProgram_Execute(MeProgram prog) {
     if (!prog)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -418,6 +436,7 @@ MeStatus MeProgram_Execute(MeProgram prog) {
     return pMeProgram_RunPlan(prog, entry);
 }
 
+/** 获取程序执行后的输出张量。 */
 MeStatus MeProgram_GetOutput(MeProgram prog, uint32_t index, MeTensor *out) {
     if (!prog || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
