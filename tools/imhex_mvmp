@@ -1,0 +1,190 @@
+#pragma endian little
+
+#include <std/core.pat>
+
+// ==========================================
+// 1. 枚举与标志位定义 (Enums & Bitfields)
+// ==========================================
+
+enum EValueType : u32 {
+    NONE        = 0,
+    TENSOR      = 1,
+    INT         = 2,
+    DOUBLE      = 3,
+    BOOL        = 4,
+    STRING      = 5,
+    TENSOR_LIST = 6
+};
+
+enum Opcode : u8 {
+    KERNEL_CALL     = 0,
+    DELEGATE_CALL   = 1,
+    MOVE_CALL       = 2,
+    JUMP_FALSE_CALL = 3,
+    FREE_CALL       = 4,
+    NOP_CALL        = 5
+};
+
+// 使用 ImHex 的 bitfield 完美映射 C++ 的位移标志
+bitfield InstructionFlags {
+    has_imm_payload : 1; // 1u << 0
+    inplace         : 1; // 1u << 1
+    reserved        : 6; // 保留位 2~7
+};
+
+enum VMTensorScalarType : u32 {
+    UNKNOWN = 0,
+    FLOAT32 = 1,
+    FLOAT16 = 2,
+    INT64   = 3,
+    INT32   = 4,
+    INT8    = 5,
+    UINT8   = 6,
+    BOOL    = 7,
+    STRING  = 8
+};
+
+enum VMTensorShapeDynamism : u32 {
+    STATIC          = 0,
+    DYNAMIC_BOUND   = 1,
+    DYNAMIC_UNBOUND = 2
+};
+
+enum VMSectionKind : u32 {
+    STRINGS      = 0,
+    INTS         = 1,
+    TENSORS      = 2,
+    EVALUES      = 3,
+    OPERATORS    = 4,
+    DELEGATES    = 5,
+    INSTRUCTIONS = 6,
+    EXEC_PLANS   = 7,
+    WEIGHTS      = 8
+};
+
+// ==========================================
+// 2. 数据结构定义 (Structures)
+// ==========================================
+
+struct TensorMeta {
+    VMTensorScalarType scalar_type [[color("FF8C00")]];
+    VMTensorShapeDynamism shape_dynamism;
+    u32 ndim;
+    u32 shape_offset;
+    u32 dim_order_offset;
+    u32 buffer_id;
+    u32 data_offset [[color("1E90FF")]];
+};
+
+struct EValue {
+    EValueType type [[color("32CD32")]];
+    u32 payload;
+};
+
+struct OperatorDef {
+    u32 name_idx;
+    u32 overload_idx;
+};
+
+struct BackendDelegate {
+    u32 id_idx;
+    u32 blob_offset;
+    u32 blob_size;
+};
+
+struct Instruction {
+    Opcode opcode [[color("FF1493")]];
+    InstructionFlags flags;
+    u8 input_count;
+    u8 output_count;
+    u32 arg1;
+    u32 arg2;
+    u32 arg3;
+};
+
+struct ExecutionPlanData {
+    u32 name_idx;
+    u32 inputs_offset;
+    u32 inputs_count;
+    u32 outputs_offset;
+    u32 outputs_count;
+    u32 instructions_offset;
+    u32 instructions_count;
+    u32 memory_pool_size [[color("9370DB")]];
+};
+
+// ==========================================
+// 3. 文件头与段布局映射 (File Layout)
+// ==========================================
+
+struct VMFileHeader {
+    char magic[4] [[name("Magic (MVMP)"), color("FFD700")]];
+    u16 version_major;
+    u16 version_minor;
+    u32 header_size;
+    u32 file_size;
+    u32 section_count [[color("00FFFF")]];
+    u32 section_table_ofs [[color("00FFFF")]];
+    u32 entry_plan_idx;
+    u32 flags;
+    u32 reserved[8];
+};
+
+struct VMSectionDesc {
+    VMSectionKind kind [[color("FF4500")]];
+    u32 offset [[color("1E90FF")]];
+    u32 size_bytes;
+    u32 count;
+};
+
+// 将 Section 描述符和它实际指向的数据绑定在一起解析
+struct VMSection {
+    VMSectionDesc desc;
+
+    // 使用 ImHex 的 @ 语法，跨跳转到 desc.offset 位置解析具体内容
+    // 根据 kind 枚举自动切换反序列化数组结构
+    if (desc.kind == VMSectionKind::STRINGS) {
+        char strings[desc.size_bytes] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::INTS) {
+        u32 ints[desc.count] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::TENSORS) {
+        TensorMeta tensors[desc.count] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::EVALUES) {
+        EValue evalues[desc.count] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::OPERATORS) {
+        OperatorDef operators[desc.count] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::DELEGATES) {
+        BackendDelegate delegates[desc.count] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::INSTRUCTIONS) {
+        Instruction instructions[desc.count] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::EXEC_PLANS) {
+        ExecutionPlanData exec_plans[desc.count] @ desc.offset;
+    } 
+    else if (desc.kind == VMSectionKind::WEIGHTS) {
+        u8 weights[desc.size_bytes] @ desc.offset;
+    } 
+    else if (desc.size_bytes > 0) {
+        u8 unknown_data[desc.size_bytes] @ desc.offset;
+    }
+};
+
+// ==========================================
+// 4. 入口点定义 (Entry Point)
+// ==========================================
+
+struct MVMPFile {
+    VMFileHeader header;
+    
+    // 从 header 中读取 section_table_ofs 位置，解析 section_count 个段描述符
+    VMSection sections[header.section_count] @ header.section_table_ofs;
+};
+
+// 从 0x00 开始解析文件
+MVMPFile file @ 0x00 [[name("MVMP Virtual Machine Program")]];
