@@ -13,7 +13,6 @@
 
 /* ---- Opaque Handles --------------------------------------------------- */
 
-typedef struct MeRuntime_T *MeRuntime;
 typedef struct MeProgram_T *MeProgram;
 typedef struct MeTensor_T  *MeTensor;
 

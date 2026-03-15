@@ -2,12 +2,12 @@
 
 #include <string.h>
 
-#define ME_VERSION_STRING "0.1.0"
+#define ME_VERSION_STRING "0.2.0"
 
-// 获取版本字符串 返回MicroExec运行时的版本号字符串
+static bool g_runtime_initialized = false;
+
 const char *Microexec_Version(void) { return ME_VERSION_STRING; }
 
-// 获取状态码描述 根据状态码返回对应的人类可读状态描述字符串
 const char *MeStatus_String(MeStatus status) {
     switch (status) {
     case ME_STATUS_OK:
@@ -35,47 +35,36 @@ const char *MeStatus_String(MeStatus status) {
     }
 }
 
-// 创建运行时实例 根据配置创建MicroExec运行时实例，初始化算子注册表并注册内置算子
-MeStatus MeRuntime_Create(const MeRuntimeConfig *config, MeRuntime *out) {
-    if (!out)
-        return ME_STATUS_ERROR_INVALID_ARGUMENT;
+MeStatus MeRuntime_Init(const MeRuntimeConfig *config) {
+    if (g_runtime_initialized)
+        return ME_STATUS_ERROR_INTERNAL;
 
-    MeAllocator alloc;
-    if (config && config->allocator) {
-        alloc = *config->allocator;
-    } else {
-        me_default_alloc_init(&alloc);
-    }
+    const MeAllocator *custom = (config && config->allocator) ? config->allocator : NULL;
+    MeStatus           s      = MeMemory_Init(custom);
+    if (s != ME_STATUS_OK)
+        return s;
 
-    MeRuntime rt = (MeRuntime)me_alloc(&alloc, sizeof(struct MeRuntime_T));
-    if (!rt)
-        return ME_STATUS_ERROR_OUT_OF_MEMORY;
-
-    memset(rt, 0, sizeof(*rt));
-    rt->allocator = alloc;
-
-    MeStatus s = pMeOpRegistry_Init(&rt->op_registry, &rt->allocator);
+    s = pMeOpRegistry_Init();
     if (s != ME_STATUS_OK) {
-        me_free(&alloc, rt);
+        MeMemory_Shutdown();
         return s;
     }
 
-    s = pMeRuntime_InitBuiltinOperators(rt);
+    s = pMeRuntime_InitBuiltinOperators();
     if (s != ME_STATUS_OK) {
-        pMeOpRegistry_Destroy(&rt->op_registry);
-        me_free(&alloc, rt);
+        pMeOpRegistry_Shutdown();
+        MeMemory_Shutdown();
         return s;
     }
 
-    *out = rt;
+    g_runtime_initialized = true;
     return ME_STATUS_OK;
 }
 
-// 销毁运行时实例 销毁MicroExec运行时实例，释放算子注册表和相关资源
-void MeRuntime_Destroy(MeRuntime rt) {
-    if (!rt)
+void MeRuntime_Shutdown(void) {
+    if (!g_runtime_initialized)
         return;
-    pMeOpRegistry_Destroy(&rt->op_registry);
-    MeAllocator a = rt->allocator;
-    me_free(&a, rt);
+    pMeOpRegistry_Shutdown();
+    MeMemory_Shutdown();
+    g_runtime_initialized = false;
 }

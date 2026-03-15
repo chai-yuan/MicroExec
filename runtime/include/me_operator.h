@@ -23,9 +23,9 @@ typedef struct MeOpContext {
 typedef MeStatus (*MeKernelFunc)(MeOpContext *ctx);
 
 /** 注册或覆盖算子内核（同名内核将被替换） */
-MeStatus MeRuntime_Register(MeRuntime rt, const char *op_name, MeKernelFunc kernel);
+MeStatus MeRuntime_Register(const char *op_name, MeKernelFunc kernel);
 
 /** 注销算子内核（回退到内置软实现） */
-MeStatus MeRuntime_Unregister(MeRuntime rt, const char *op_name);
+MeStatus MeRuntime_Unregister(const char *op_name);
 
 #endif /* MICROEXEC_ME_OPERATOR_H */

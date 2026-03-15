@@ -18,8 +18,8 @@ MeStatus me_op_soft_gemm(MeOpContext *ctx) {
 
     int32_t  a_shape[2], b_shape[2], y_shape[2];
     uint32_t andim = 2, bndim = 2, yndim = 2;
-    if (MeTensor_GetShape(A, a_shape, &andim) != ME_STATUS_OK || MeTensor_GetShape(B, b_shape, &bndim) != ME_STATUS_OK ||
-        MeTensor_GetShape(Y, y_shape, &yndim) != ME_STATUS_OK)
+    if (MeTensor_GetShape(A, a_shape, &andim) != ME_STATUS_OK ||
+        MeTensor_GetShape(B, b_shape, &bndim) != ME_STATUS_OK || MeTensor_GetShape(Y, y_shape, &yndim) != ME_STATUS_OK)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     if (andim != 2 || bndim != 2 || yndim != 2)
         return ME_STATUS_ERROR_UNSUPPORTED;

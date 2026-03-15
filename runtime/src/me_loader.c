@@ -6,12 +6,10 @@
 #include <stdlib.h>
 #include <string.h>
 
-// 检查边界是否有效 验证给定的偏移量和大小是否在文件大小范围内
 static bool bounds_ok(uint32_t ofs, uint32_t size, uint32_t file_size) {
     return ofs <= file_size && size <= (file_size - ofs);
 }
 
-// 检查乘法溢出 检查两个size_t相乘是否会导致溢出，并将结果写入输出参数
 static bool mul_overflow_size(size_t a, size_t b, size_t *out) {
     if (a == 0 || b == 0) {
         *out = 0;
@@ -23,7 +21,6 @@ static bool mul_overflow_size(size_t a, size_t b, size_t *out) {
     return false;
 }
 
-// 获取字符串池中的字符串 从字符串池中获取指定索引的字符串及其长度
 static const char *string_pool_at(const char *pool, uint32_t count, uint32_t size_bytes, uint32_t idx,
                                   uint32_t *out_len) {
     if (!pool || idx >= count || !out_len)
@@ -46,7 +43,6 @@ static const char *string_pool_at(const char *pool, uint32_t count, uint32_t siz
     return NULL;
 }
 
-// 获取回退内置内核函数 根据算子名称返回对应的软件实现内核函数指针
 static MeKernelFunc fallback_builtin_kernel(const char *name) {
     if (!name)
         return NULL;
@@ -67,7 +63,6 @@ static MeKernelFunc fallback_builtin_kernel(const char *name) {
 
 /* ---- 内部：二进制解析器 ------------------------------------------ */
 
-// 解析程序二进制数据 解析VM文件格式，验证文件头并提取各个段（字符串池、整数池、张量池等）的信息
 MeStatus pMeProgram_Parse(MeProgram prog, const void *data, uint32_t size) {
     if (size < sizeof(VMFileHeader))
         return ME_STATUS_ERROR_INVALID_PROGRAM;
@@ -173,15 +168,14 @@ MeStatus pMeProgram_Parse(MeProgram prog, const void *data, uint32_t size) {
         entry->instructions_count > prog->instruction_count - entry->instructions_offset)
         return ME_STATUS_ERROR_INVALID_PROGRAM;
 
-    MeAllocator *a = &prog->runtime->allocator;
     if (entry->inputs_count > 0) {
-        prog->bound_inputs = (MeTensor *)me_alloc(a, entry->inputs_count * sizeof(MeTensor));
+        prog->bound_inputs = (MeTensor *)me_alloc(entry->inputs_count * sizeof(MeTensor));
         if (!prog->bound_inputs)
             return ME_STATUS_ERROR_OUT_OF_MEMORY;
         memset(prog->bound_inputs, 0, entry->inputs_count * sizeof(MeTensor));
     }
     if (entry->outputs_count > 0) {
-        prog->bound_outputs = (MeTensor *)me_alloc(a, entry->outputs_count * sizeof(MeTensor));
+        prog->bound_outputs = (MeTensor *)me_alloc(entry->outputs_count * sizeof(MeTensor));
         if (!prog->bound_outputs)
             return ME_STATUS_ERROR_OUT_OF_MEMORY;
         memset(prog->bound_outputs, 0, entry->outputs_count * sizeof(MeTensor));
@@ -192,13 +186,11 @@ MeStatus pMeProgram_Parse(MeProgram prog, const void *data, uint32_t size) {
     return ME_STATUS_OK;
 }
 
-// 解析算子内核函数 根据算子名称在注册表中查找并绑定对应的内核函数指针，支持回退到软件实现
 MeStatus pMeProgram_ResolveKernels(MeProgram prog) {
     if (prog->operator_count == 0)
         return ME_STATUS_OK;
 
-    MeAllocator *a         = &prog->runtime->allocator;
-    prog->resolved_kernels = (MeKernelFunc *)me_alloc(a, prog->operator_count * sizeof(MeKernelFunc));
+    prog->resolved_kernels = (MeKernelFunc *)me_alloc(prog->operator_count * sizeof(MeKernelFunc));
     if (!prog->resolved_kernels)
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
 
@@ -220,33 +212,33 @@ MeStatus pMeProgram_ResolveKernels(MeProgram prog) {
         if (!name_ptr)
             return ME_STATUS_ERROR_INVALID_PROGRAM;
 
-        char *name = (char *)me_alloc(a, (size_t)name_len + 1);
+        char *name = (char *)me_alloc((size_t)name_len + 1);
         if (!name)
             return ME_STATUS_ERROR_OUT_OF_MEMORY;
         memcpy(name, name_ptr, name_len);
         name[name_len] = '\0';
 
-        MeKernelFunc k = pMeOpRegistry_Lookup(&prog->runtime->op_registry, name);
+        MeKernelFunc k = pMeOpRegistry_Lookup(name);
         if (!k) {
             const char *onnx_prefix = "onnx::";
             if (strncmp(name, onnx_prefix, 6) == 0) {
-                k = pMeOpRegistry_Lookup(&prog->runtime->op_registry, name + 6);
+                k = pMeOpRegistry_Lookup(name + 6);
             } else {
                 size_t aliased_len = name_len + 6;
-                char  *alias       = (char *)me_alloc(a, aliased_len + 1);
+                char  *alias       = (char *)me_alloc(aliased_len + 1);
                 if (!alias) {
-                    me_free(a, name);
+                    me_free(name);
                     return ME_STATUS_ERROR_OUT_OF_MEMORY;
                 }
                 memcpy(alias, onnx_prefix, 6);
                 memcpy(alias + 6, name, name_len + 1);
-                k = pMeOpRegistry_Lookup(&prog->runtime->op_registry, alias);
-                me_free(a, alias);
+                k = pMeOpRegistry_Lookup(alias);
+                me_free(alias);
             }
         }
         if (!k)
             k = fallback_builtin_kernel(name);
-        me_free(a, name);
+        me_free(name);
         if (!k)
             return ME_STATUS_ERROR_OPERATOR_NOT_FOUND;
         prog->resolved_kernels[i] = k;
@@ -257,22 +249,18 @@ MeStatus pMeProgram_ResolveKernels(MeProgram prog) {
 
 /* ---- 公共接口：程序加载 ------------------------------------------ */
 
-// 从内存加载程序 从内存缓冲区加载程序数据，解析并解析内核函数
-MeStatus MeProgram_CreateFromBuffer(MeRuntime rt, const void *data, uint32_t size, MeProgram *out) {
-    if (!rt || !data || !size || !out)
+MeStatus MeProgram_CreateFromBuffer(const void *data, uint32_t size, MeProgram *out) {
+    if (!data || !size || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
-    MeAllocator *a = &rt->allocator;
-
-    MeProgram prog = (MeProgram)me_alloc(a, sizeof(struct MeProgram_T));
+    MeProgram prog = (MeProgram)me_alloc(sizeof(struct MeProgram_T));
     if (!prog)
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     memset(prog, 0, sizeof(*prog));
-    prog->runtime = rt;
 
-    prog->raw_data = me_alloc(a, size);
+    prog->raw_data = me_alloc(size);
     if (!prog->raw_data) {
-        me_free(a, prog);
+        me_free(prog);
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     }
     memcpy(prog->raw_data, data, size);
@@ -295,13 +283,11 @@ MeStatus MeProgram_CreateFromBuffer(MeRuntime rt, const void *data, uint32_t siz
     return ME_STATUS_OK;
 }
 
-// 销毁程序 释放程序占用的所有资源，包括执行内存、张量、内核函数数组等
 void MeProgram_Destroy(MeProgram prog) {
     if (!prog)
         return;
-    MeAllocator *a = &prog->runtime->allocator;
 
-    me_arena_destroy(&prog->exec_mem);
+    MeArena_Destroy(&prog->exec_mem);
 
     if (prog->io_tensors && prog->io_tensor_owned) {
         for (uint32_t i = 0; i < prog->io_tensor_count; ++i) {
@@ -310,23 +296,22 @@ void MeProgram_Destroy(MeProgram prog) {
         }
     }
     if (prog->resolved_kernels)
-        me_free(a, prog->resolved_kernels);
+        me_free(prog->resolved_kernels);
     if (prog->io_tensor_owned)
-        me_free(a, prog->io_tensor_owned);
+        me_free(prog->io_tensor_owned);
     if (prog->io_tensors)
-        me_free(a, prog->io_tensors);
+        me_free(prog->io_tensors);
     if (prog->bound_inputs)
-        me_free(a, prog->bound_inputs);
+        me_free(prog->bound_inputs);
     if (prog->bound_outputs)
-        me_free(a, prog->bound_outputs);
+        me_free(prog->bound_outputs);
 
     if (prog->owns_data && prog->raw_data)
-        me_free(a, prog->raw_data);
+        me_free(prog->raw_data);
 
-    me_free(a, prog);
+    me_free(prog);
 }
 
-// 获取程序输入数量 返回程序入口执行计划的输入张量数量
 MeStatus MeProgram_InputCount(MeProgram prog, uint32_t *count) {
     if (!prog || !count)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -338,7 +323,6 @@ MeStatus MeProgram_InputCount(MeProgram prog, uint32_t *count) {
     return ME_STATUS_OK;
 }
 
-// 获取程序输出数量 返回程序入口执行计划的输出张量数量
 MeStatus MeProgram_OutputCount(MeProgram prog, uint32_t *count) {
     if (!prog || !count)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;

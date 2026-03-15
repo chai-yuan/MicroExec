@@ -2,7 +2,7 @@
  * 示例 01 — 基础推理
  *
  * 演示最小化的工作流程：
- *   1. 创建运行时环境
+ *   1. 初始化运行时环境
  *   2. 加载编译后的 .mvmp 程序
  *   3. 创建并绑定输入张量
  *   4. 执行推理
@@ -56,7 +56,6 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    MeRuntime rt     = NULL;
     MeProgram prog   = NULL;
     MeTensor  input  = NULL;
     MeTensor  output = NULL;
@@ -64,10 +63,10 @@ int main(int argc, char *argv[]) {
     uint8_t  *model_data = NULL;
     uint32_t  model_size = 0;
 
-    /* 使用默认配置创建运行时环境 */
-    s = MeRuntime_Create(NULL, &rt);
+    /* 使用默认配置初始化运行时环境 */
+    s = MeRuntime_Init(NULL);
     if (s != ME_STATUS_OK) {
-        fprintf(stderr, "MeRuntime_Create: %s\n", MeStatus_String(s));
+        fprintf(stderr, "MeRuntime_Init: %s\n", MeStatus_String(s));
         return 1;
     }
     printf("MicroExec runtime v%s\n", Microexec_Version());
@@ -79,7 +78,7 @@ int main(int argc, char *argv[]) {
     }
 
     /* 加载编译后的模型 */
-    s = MeProgram_CreateFromBuffer(rt, model_data, model_size, &prog);
+    s = MeProgram_CreateFromBuffer(model_data, model_size, &prog);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "MeProgram_CreateFromBuffer: %s\n", MeStatus_String(s));
         goto cleanup;
@@ -87,7 +86,7 @@ int main(int argc, char *argv[]) {
 
     /* 创建输入张量（例如 LeNet: 1×1×28×28 float32） */
     int32_t shape[] = {1, 1, 28, 28};
-    s = MeTensor_Create(rt, ME_SCALAR_FLOAT32, shape, 4, &input);
+    s               = MeTensor_Create(ME_SCALAR_FLOAT32, shape, 4, &input);
     if (s != ME_STATUS_OK) {
         fprintf(stderr, "MeTensor_Create: %s\n", MeStatus_String(s));
         goto cleanup;
@@ -143,6 +142,6 @@ cleanup:
     free(model_data);
     MeTensor_Destroy(input);
     MeProgram_Destroy(prog);
-    MeRuntime_Destroy(rt);
+    MeRuntime_Shutdown();
     return (s == ME_STATUS_OK) ? 0 : 1;
 }

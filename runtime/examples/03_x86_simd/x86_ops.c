@@ -15,9 +15,9 @@ MeStatus x86_relu(MeOpContext *ctx) {
     MeTensor in  = ctx->inputs[0];
     MeTensor out = ctx->outputs[0];
 
-    size_t       n   = me_tensor_nbytes(in) / sizeof(float);
-    const float *src = (const float *)me_tensor_data(in);
-    float       *dst = (float *)me_tensor_data(out);
+    size_t       n   = MeTensor_GetNbytes(in) / sizeof(float);
+    const float *src = (const float *)MeTensor_GetData(in);
+    float       *dst = (float *)MeTensor_GetData(out);
 
     printf("[x86] SSE2 ReLU — %zu elements\n", n);
 
@@ -53,14 +53,14 @@ MeStatus x86_gemm(MeOpContext *ctx) {
 
 /* ---- Batch Registration ----------------------------------------------- */
 
-MeStatus x86_register_operators(MeRuntime rt) {
+MeStatus x86_register_operators(void) {
     MeStatus s;
 
-    s = me_operator_register(rt, "Relu", x86_relu);
+    s = MeRuntime_Register("Relu", x86_relu);
     if (s != ME_STATUS_OK)
         return s;
 
-    s = me_operator_register(rt, "Gemm", x86_gemm);
+    s = MeRuntime_Register("Gemm", x86_gemm);
     if (s != ME_STATUS_OK)
         return s;
 

@@ -2,7 +2,6 @@
 
 #include <string.h>
 
-// 计算张量字节数 根据数据类型和形状计算张量所需的总字节数
 static size_t compute_nbytes(MeScalarType dtype, const int32_t *shape, uint32_t ndim) {
     size_t elem_size = MeScalarType_Size(dtype);
     if (elem_size == 0)
@@ -19,33 +18,30 @@ static size_t compute_nbytes(MeScalarType dtype, const int32_t *shape, uint32_t 
 
 /* ---- 公共接口：张量生命周期 ----------------------------------------- */
 
-// 创建张量 根据数据类型和形状创建张量，分配形状数组和数据内存并初始化为零
-MeStatus MeTensor_Create(MeRuntime rt, MeScalarType dtype, const int32_t *shape, uint32_t ndim, MeTensor *out) {
-    if (!rt || !shape || ndim == 0 || !out)
+MeStatus MeTensor_Create(MeScalarType dtype, const int32_t *shape, uint32_t ndim, MeTensor *out) {
+    if (!shape || ndim == 0 || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
     size_t nbytes = compute_nbytes(dtype, shape, ndim);
     if (nbytes == 0)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
-    MeAllocator *a = &rt->allocator;
-
-    MeTensor t = (MeTensor)me_alloc(a, sizeof(struct MeTensor_T));
+    MeTensor t = (MeTensor)me_alloc(sizeof(struct MeTensor_T));
     if (!t)
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     memset(t, 0, sizeof(*t));
 
-    t->shape = (int32_t *)me_alloc(a, ndim * sizeof(int32_t));
+    t->shape = (int32_t *)me_alloc(ndim * sizeof(int32_t));
     if (!t->shape) {
-        me_free(a, t);
+        me_free(t);
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     }
     memcpy(t->shape, shape, ndim * sizeof(int32_t));
 
-    t->data = me_alloc_aligned(a, nbytes, 16);
+    t->data = me_alloc_aligned(nbytes, 16);
     if (!t->data) {
-        me_free(a, t->shape);
-        me_free(a, t);
+        me_free(t->shape);
+        me_free(t);
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     }
     memset(t->data, 0, nbytes);
@@ -54,26 +50,22 @@ MeStatus MeTensor_Create(MeRuntime rt, MeScalarType dtype, const int32_t *shape,
     t->ndim      = ndim;
     t->nbytes    = nbytes;
     t->owns_data = true;
-    t->allocator = a;
 
     *out = t;
     return ME_STATUS_OK;
 }
 
-// 销毁张量 释放张量的数据内存、形状数组和张量结构体本身
 void MeTensor_Destroy(MeTensor tensor) {
     if (!tensor)
         return;
-    MeAllocator *a = tensor->allocator;
     if (tensor->owns_data)
-        me_free(a, tensor->data);
-    me_free(a, tensor->shape);
-    me_free(a, tensor);
+        me_free(tensor->data);
+    me_free(tensor->shape);
+    me_free(tensor);
 }
 
 /* ---- 公共接口：数据访问 ---------------------------------------------- */
 
-// 设置张量数据 将源数据复制到张量的数据缓冲区中，要求大小必须匹配
 MeStatus MeTensor_SetData(MeTensor tensor, const void *src, size_t size) {
     if (!tensor || !src)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -83,10 +75,8 @@ MeStatus MeTensor_SetData(MeTensor tensor, const void *src, size_t size) {
     return ME_STATUS_OK;
 }
 
-// 获取张量数据指针 返回张量数据缓冲区的指针
 void *MeTensor_GetData(MeTensor tensor) { return tensor ? tensor->data : NULL; }
 
-// 获取张量形状 将张量的形状维度复制到输出数组，并返回实际的维度数
 MeStatus MeTensor_GetShape(MeTensor tensor, int32_t *shape_out, uint32_t *ndim_out) {
     if (!tensor || !ndim_out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -99,8 +89,6 @@ MeStatus MeTensor_GetShape(MeTensor tensor, int32_t *shape_out, uint32_t *ndim_o
     return ME_STATUS_OK;
 }
 
-// 获取张量数据类型 返回张量的标量数据类型
 MeScalarType MeTensor_GetDtype(MeTensor tensor) { return tensor ? tensor->dtype : ME_SCALAR_UNKNOWN; }
 
-// 获取张量字节数 返回张量数据缓冲区的总字节数
 size_t MeTensor_GetNbytes(MeTensor tensor) { return tensor ? tensor->nbytes : 0; }

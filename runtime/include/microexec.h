@@ -17,15 +17,15 @@ extern "C" {
 
 /* ==== Runtime Lifecycle ================================================ */
 
-/** 创建运行时实例（传入 NULL 使用默认配置） */
-MeStatus MeRuntime_Create(const MeRuntimeConfig *config, MeRuntime *out);
-/** 销毁运行时并释放所有关联资源 */
-void MeRuntime_Destroy(MeRuntime rt);
+/** 初始化全局运行时单例（传入 NULL 使用默认配置） */
+MeStatus MeRuntime_Init(const MeRuntimeConfig *config);
+/** 关闭运行时并释放所有关联资源 */
+void MeRuntime_Shutdown(void);
 
 /* ==== Program Management ================================================== */
 
 /** 从内存缓冲区加载编译后的程序 */
-MeStatus MeProgram_CreateFromBuffer(MeRuntime rt, const void *data, uint32_t size, MeProgram *out);
+MeStatus MeProgram_CreateFromBuffer(const void *data, uint32_t size, MeProgram *out);
 /** 销毁已加载的程序 */
 void MeProgram_Destroy(MeProgram prog);
 /** 查询程序期望的输入张量数量 */
@@ -42,10 +42,10 @@ MeStatus MeProgram_GetOutput(MeProgram prog, uint32_t index, MeTensor *out);
 /* ==== Tensor Management ================================================ */
 
 /** 创建张量（根据形状自动分配存储空间，内容初始化为零） */
-MeStatus MeTensor_Create(MeRuntime rt, MeScalarType dtype, const int32_t *shape, uint32_t ndim, MeTensor *out);
+MeStatus MeTensor_Create(MeScalarType dtype, const int32_t *shape, uint32_t ndim, MeTensor *out);
 /** 销毁用户创建的张量 */
 void MeTensor_Destroy(MeTensor tensor);
-/** 向张量拷贝数据（size 必须等于 me_tensor_nbytes） */
+/** 向张量拷贝数据（size 必须等于 MeTensor_GetNbytes） */
 MeStatus MeTensor_SetData(MeTensor tensor, const void *src, size_t size);
 /** 获取张量数据缓冲区的可写指针 */
 void *MeTensor_GetData(MeTensor tensor);

@@ -3,7 +3,6 @@
 #include <stdlib.h>
 #include <string.h>
 
-// 从元数据计算张量字节数 根据张量元数据和整数池计算张量所需的总字节数
 static size_t tensor_nbytes_from_meta(const TensorMeta *meta, const int32_t *int_pool, uint32_t int_count) {
     if (!meta || !int_pool)
         return 0;
@@ -29,14 +28,12 @@ static size_t tensor_nbytes_from_meta(const TensorMeta *meta, const int32_t *int
     return count * elem_size;
 }
 
-// 获取张量维度 获取张量的形状维度数组和维度数
 static MeStatus get_tensor_dims(MeTensor t, int32_t *dims, uint32_t *ndim) {
     if (!t || !dims || !ndim || *ndim == 0)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     return MeTensor_GetShape(t, dims, ndim);
 }
 
-// 确保张量存储 根据元数据确保张量具有适当的存储空间，可能使用执行内存或重新分配
 static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, MeTensor t) {
     if (!prog || !meta || !t)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -47,7 +44,7 @@ static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, Me
         if (meta->data_offset > prog->exec_mem.capacity || t->nbytes > prog->exec_mem.capacity - meta->data_offset)
             return ME_STATUS_ERROR_INVALID_PROGRAM;
         if (t->owns_data && t->data) {
-            me_free(&prog->runtime->allocator, t->data);
+            me_free(t->data);
         }
         t->data      = prog->exec_mem.base + meta->data_offset;
         t->owns_data = false;
@@ -55,17 +52,16 @@ static MeStatus ensure_tensor_storage(MeProgram prog, const TensorMeta *meta, Me
     }
 
     if (t->owns_data && t->data) {
-        me_free(&prog->runtime->allocator, t->data);
+        me_free(t->data);
         t->data = NULL;
     }
-    t->data = me_alloc_aligned(&prog->runtime->allocator, t->nbytes, 16);
+    t->data = me_alloc_aligned(t->nbytes, 16);
     if (!t->data)
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     t->owns_data = true;
     return ME_STATUS_OK;
 }
 
-// 应用运行时形状到张量 根据程序整数池中的形状信息和参考维度调整张量的形状和大小
 static MeStatus apply_runtime_shape_to_tensor(MeProgram prog, MeTensor t, const TensorMeta *meta,
                                               const int32_t *ref_dims, uint32_t ref_ndim) {
     if (!prog || !t || !meta)
@@ -100,7 +96,6 @@ static MeStatus apply_runtime_shape_to_tensor(MeProgram prog, MeTensor t, const 
     return ME_STATUS_OK;
 }
 
-// 创建视图张量 根据元数据创建一个引用外部数据的视图张量，不拥有数据所有权
 static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta, void *data, MeTensor *out) {
     if (!prog || !meta || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -113,15 +108,14 @@ static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta, void 
     if (nbytes == 0)
         return ME_STATUS_ERROR_INVALID_PROGRAM;
 
-    MeAllocator *a = &prog->runtime->allocator;
-    MeTensor     t = (MeTensor)me_alloc(a, sizeof(struct MeTensor_T));
+    MeTensor t = (MeTensor)me_alloc(sizeof(struct MeTensor_T));
     if (!t)
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     memset(t, 0, sizeof(*t));
 
-    t->shape = (int32_t *)me_alloc(a, meta->ndim * sizeof(int32_t));
+    t->shape = (int32_t *)me_alloc(meta->ndim * sizeof(int32_t));
     if (!t->shape) {
-        me_free(a, t);
+        me_free(t);
         return ME_STATUS_ERROR_OUT_OF_MEMORY;
     }
     for (uint32_t i = 0; i < meta->ndim; ++i) {
@@ -134,13 +128,11 @@ static MeStatus create_view_tensor(MeProgram prog, const TensorMeta *meta, void 
     t->data      = data;
     t->nbytes    = nbytes;
     t->owns_data = false;
-    t->allocator = a;
 
     *out = t;
     return ME_STATUS_OK;
 }
 
-// 检查EValue是否为计划输入 检查指定的EValue索引是否在执行计划的输入列表中
 static bool evalue_is_plan_input(const ExecutionPlanData *plan, const int32_t *int_pool, uint32_t int_count,
                                  uint32_t evalue_idx) {
     if (!plan || !int_pool)
@@ -154,21 +146,18 @@ static bool evalue_is_plan_input(const ExecutionPlanData *plan, const int32_t *i
     return false;
 }
 
-// 确保张量视图 为执行计划中的所有非输入张量EValue创建视图张量
 static MeStatus ensure_tensor_views(MeProgram prog, const ExecutionPlanData *plan) {
     if (!prog || !plan)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
 
-    MeAllocator *a = &prog->runtime->allocator;
-
     if (!prog->io_tensors) {
-        prog->io_tensors = (MeTensor *)me_alloc(a, prog->evalue_count * sizeof(MeTensor));
+        prog->io_tensors = (MeTensor *)me_alloc(prog->evalue_count * sizeof(MeTensor));
         if (!prog->io_tensors)
             return ME_STATUS_ERROR_OUT_OF_MEMORY;
         memset(prog->io_tensors, 0, prog->evalue_count * sizeof(MeTensor));
     }
     if (!prog->io_tensor_owned) {
-        prog->io_tensor_owned = (bool *)me_alloc(a, prog->evalue_count * sizeof(bool));
+        prog->io_tensor_owned = (bool *)me_alloc(prog->evalue_count * sizeof(bool));
         if (!prog->io_tensor_owned)
             return ME_STATUS_ERROR_OUT_OF_MEMORY;
         memset(prog->io_tensor_owned, 0, prog->evalue_count * sizeof(bool));
@@ -208,22 +197,21 @@ static MeStatus ensure_tensor_views(MeProgram prog, const ExecutionPlanData *pla
     return ME_STATUS_OK;
 }
 
-// 准备运行时缓冲区 初始化或重置执行内存池，并为张量分配或绑定存储空间
 static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData *plan) {
     if (!prog || !plan)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
     if (plan->memory_pool_size > 0) {
         if (!prog->exec_mem.base) {
-            MeStatus s = me_arena_init(&prog->exec_mem, &prog->runtime->allocator, (size_t)plan->memory_pool_size);
+            MeStatus s = MeArena_Init(&prog->exec_mem, (size_t)plan->memory_pool_size);
             if (s != ME_STATUS_OK)
                 return s;
         } else if (prog->exec_mem.capacity < (size_t)plan->memory_pool_size) {
-            me_arena_destroy(&prog->exec_mem);
-            MeStatus s = me_arena_init(&prog->exec_mem, &prog->runtime->allocator, (size_t)plan->memory_pool_size);
+            MeArena_Destroy(&prog->exec_mem);
+            MeStatus s = MeArena_Init(&prog->exec_mem, (size_t)plan->memory_pool_size);
             if (s != ME_STATUS_OK)
                 return s;
         } else {
-            me_arena_reset(&prog->exec_mem);
+            MeArena_Reset(&prog->exec_mem);
         }
     }
 
@@ -238,9 +226,9 @@ static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData 
             continue;
         if (meta->data_offset == UINT32_MAX) {
             if (prog->io_tensors[i]->owns_data && prog->io_tensors[i]->data) {
-                me_free(&prog->runtime->allocator, prog->io_tensors[i]->data);
+                me_free(prog->io_tensors[i]->data);
             }
-            prog->io_tensors[i]->data = me_alloc_aligned(&prog->runtime->allocator, prog->io_tensors[i]->nbytes, 16);
+            prog->io_tensors[i]->data = me_alloc_aligned(prog->io_tensors[i]->nbytes, 16);
             if (!prog->io_tensors[i]->data)
                 return ME_STATUS_ERROR_OUT_OF_MEMORY;
             prog->io_tensors[i]->owns_data = true;
@@ -253,7 +241,6 @@ static MeStatus prepare_runtime_buffers(MeProgram prog, const ExecutionPlanData 
     return ME_STATUS_OK;
 }
 
-// 执行指定的执行计划 按照执行计划中的指令序列依次执行，处理输入输出张量的绑定和算子调用
 MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
     if (!prog || plan_idx >= prog->plan_count)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -303,7 +290,7 @@ MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
     if (s != ME_STATUS_OK)
         return s;
 
-    MeAllocator *a = &prog->runtime->allocator;
+    MeAllocator *a = MeMemory_GetAllocator();
     for (uint32_t pc = 0; pc < plan->instructions_count; ++pc) {
         const Instruction *instr = &prog->instruction_pool[plan->instructions_offset + pc];
         switch ((Opcode)instr->opcode) {
@@ -322,14 +309,14 @@ MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
             MeTensor *ins  = NULL;
             MeTensor *outs = NULL;
             if (instr->input_count > 0) {
-                ins = (MeTensor *)me_alloc(a, instr->input_count * sizeof(MeTensor));
+                ins = (MeTensor *)me_alloc(instr->input_count * sizeof(MeTensor));
                 if (!ins)
                     return ME_STATUS_ERROR_OUT_OF_MEMORY;
             }
             if (instr->output_count > 0) {
-                outs = (MeTensor *)me_alloc(a, instr->output_count * sizeof(MeTensor));
+                outs = (MeTensor *)me_alloc(instr->output_count * sizeof(MeTensor));
                 if (!outs) {
-                    me_free(a, ins);
+                    me_free(ins);
                     return ME_STATUS_ERROR_OUT_OF_MEMORY;
                 }
             }
@@ -337,8 +324,8 @@ MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
             for (uint32_t i = 0; i < instr->input_count; ++i) {
                 uint32_t eidx = (uint32_t)prog->int_pool[instr->arg2 + i];
                 if (eidx >= prog->evalue_count || !prog->io_tensors[eidx]) {
-                    me_free(a, outs);
-                    me_free(a, ins);
+                    me_free(outs);
+                    me_free(ins);
                     return ME_STATUS_ERROR_EXECUTION_FAILED;
                 }
                 ins[i] = prog->io_tensors[eidx];
@@ -346,8 +333,8 @@ MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
             for (uint32_t i = 0; i < instr->output_count; ++i) {
                 uint32_t eidx = (uint32_t)prog->int_pool[instr->arg2 + instr->input_count + i];
                 if (eidx >= prog->evalue_count || !prog->io_tensors[eidx]) {
-                    me_free(a, outs);
-                    me_free(a, ins);
+                    me_free(outs);
+                    me_free(ins);
                     return ME_STATUS_ERROR_EXECUTION_FAILED;
                 }
                 outs[i] = prog->io_tensors[eidx];
@@ -361,8 +348,8 @@ MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
             ctx.allocator    = a;
 
             MeStatus ks = kernel(&ctx);
-            me_free(a, outs);
-            me_free(a, ins);
+            me_free(outs);
+            me_free(ins);
             if (ks != ME_STATUS_OK)
                 return ks;
             break;
@@ -403,7 +390,6 @@ MeStatus pMeProgram_RunPlan(MeProgram prog, uint32_t plan_idx) {
     return ME_STATUS_OK;
 }
 
-// 设置程序输入 将用户提供的张量绑定到程序指定索引的输入位置，验证数据类型和形状匹配
 MeStatus MeProgram_SetInput(MeProgram prog, uint32_t index, MeTensor tensor) {
     if (!prog || !tensor)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -445,7 +431,6 @@ MeStatus MeProgram_SetInput(MeProgram prog, uint32_t index, MeTensor tensor) {
     return ME_STATUS_OK;
 }
 
-// 执行程序 执行程序的入口执行计划，完成整个推理流程
 MeStatus MeProgram_Execute(MeProgram prog) {
     if (!prog)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
@@ -457,7 +442,6 @@ MeStatus MeProgram_Execute(MeProgram prog) {
     return pMeProgram_RunPlan(prog, entry);
 }
 
-// 获取程序输出 获取程序执行后指定索引的输出张量
 MeStatus MeProgram_GetOutput(MeProgram prog, uint32_t index, MeTensor *out) {
     if (!prog || !out)
         return ME_STATUS_ERROR_INVALID_ARGUMENT;
