@@ -39,8 +39,8 @@
 ### 当前实现
 
 - ONNX 解析导入：`frontend/build_graph.cc`
-- Graph 构建/校验：`graph/graph.h`、`graph/graph.cc`
-- Shape/Type 推断：支持 Conv、MaxPool、Relu、Reshape、Gemm 等算子的形状推断
+- ONNX 算子形状推断：`frontend/shape_infer.h`、`frontend/shape_infer.cc`，以注册表模式实现，支持 Conv、MaxPool、Relu、Reshape、Gemm 等算子，可通过 `RegisterShapeInferRule()` 扩展。可选启用 ONNX C++ 库内置推断（`make USE_ONNX=1`）
+- Graph 构建/校验：`graph/graph.h`、`graph/graph.cc`，`InferShapes()` 负责拓扑排序并通过回调委托逐节点推断
 
 ---
 

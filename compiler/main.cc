@@ -36,9 +36,6 @@ int main(int argc, const char *argv[]) {
     if (graph.BuildFromONNX(model_path) != 0) {
         return -1;
     }
-    if (graph.InferShapes() != 0) {
-        return -1;
-    }
 
     ExecProgram exec;
     if (exec.BuildFromGraph(graph) != 0) {
@@ -67,6 +64,9 @@ int main(int argc, const char *argv[]) {
     uint64_t    total_memory = plan.constant_pool_size + plan.runtime_pool_size;
     LOG_INFO("Compilation complete. Max memory required: %lu bytes (%.2f KB / %.2f MB)", (unsigned long)total_memory,
              total_memory / 1024.0, total_memory / (1024.0 * 1024.0));
+    LOG_INFO("Compilation complete. Runtime memory required: %lu bytes (%.2f KB / %.2f MB)",
+             (unsigned long)plan.runtime_pool_size, plan.runtime_pool_size / 1024.0,
+             plan.runtime_pool_size / (1024.0 * 1024.0));
 
     return 0;
 }

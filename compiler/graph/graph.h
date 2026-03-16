@@ -1,3 +1,5 @@
+#pragma once
+
 #include <cstdint>
 #include <map>
 #include <memory>
@@ -51,7 +53,6 @@ class Node {
 class Graph {
   public:
     int  BuildFromONNX(const std::string &file_name);
-    int  InferShapes();
     int  Validate() const;
     void DumpSummary() const;
 

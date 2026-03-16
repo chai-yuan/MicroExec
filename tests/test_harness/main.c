@@ -73,8 +73,8 @@ int main(int argc, char *argv[]) {
         return 1;
     }
 
-    const char *mvmp_path = argv[1];
-    const char *work_dir  = argv[2];
+    const char *mvmp_path  = argv[1];
+    const char *work_dir   = argv[2];
     int         num_inputs = atoi(argv[3]);
 
     if (num_inputs <= 0 || num_inputs > MAX_INPUTS) {
@@ -138,18 +138,15 @@ int main(int argc, char *argv[]) {
     free(model_data);
     model_data = NULL;
     if (s != ME_STATUS_OK) {
-        fprintf(stderr, "[harness] MeProgram_CreateFromBuffer: %s\n",
-                MeStatus_String(s));
+        fprintf(stderr, "[harness] MeProgram_CreateFromBuffer: %s\n", MeStatus_String(s));
         goto fail;
     }
 
     /* Create and bind input tensors */
     for (int i = 0; i < num_inputs; i++) {
-        s = MeTensor_Create(input_dtypes[i], input_shapes[i], input_ndims[i],
-                            &inputs[i]);
+        s = MeTensor_Create(input_dtypes[i], input_shapes[i], input_ndims[i], &inputs[i]);
         if (s != ME_STATUS_OK) {
-            fprintf(stderr, "[harness] MeTensor_Create(input %d): %s\n", i,
-                    MeStatus_String(s));
+            fprintf(stderr, "[harness] MeTensor_Create(input %d): %s\n", i, MeStatus_String(s));
             goto fail;
         }
 
@@ -165,9 +162,7 @@ int main(int argc, char *argv[]) {
 
         size_t expected = MeTensor_GetNbytes(inputs[i]);
         if (input_size != expected) {
-            fprintf(stderr,
-                    "[harness] input %d size mismatch: file=%u expected=%zu\n",
-                    i, input_size, expected);
+            fprintf(stderr, "[harness] input %d size mismatch: file=%u expected=%zu\n", i, input_size, expected);
             free(input_data);
             goto fail;
         }
@@ -175,15 +170,13 @@ int main(int argc, char *argv[]) {
         s = MeTensor_SetData(inputs[i], input_data, input_size);
         free(input_data);
         if (s != ME_STATUS_OK) {
-            fprintf(stderr, "[harness] MeTensor_SetData(input %d): %s\n", i,
-                    MeStatus_String(s));
+            fprintf(stderr, "[harness] MeTensor_SetData(input %d): %s\n", i, MeStatus_String(s));
             goto fail;
         }
 
         s = MeProgram_SetInput(prog, (uint32_t)i, inputs[i]);
         if (s != ME_STATUS_OK) {
-            fprintf(stderr, "[harness] MeProgram_SetInput(%d): %s\n", i,
-                    MeStatus_String(s));
+            fprintf(stderr, "[harness] MeProgram_SetInput(%d): %s\n", i, MeStatus_String(s));
             goto fail;
         }
     }
@@ -197,19 +190,17 @@ int main(int argc, char *argv[]) {
 
     /* Retrieve and save outputs */
     uint32_t num_outputs = 0;
-    s = MeProgram_OutputCount(prog, &num_outputs);
+    s                    = MeProgram_OutputCount(prog, &num_outputs);
     if (s != ME_STATUS_OK) {
-        fprintf(stderr, "[harness] MeProgram_OutputCount: %s\n",
-                MeStatus_String(s));
+        fprintf(stderr, "[harness] MeProgram_OutputCount: %s\n", MeStatus_String(s));
         goto fail;
     }
 
     for (uint32_t i = 0; i < num_outputs && i < MAX_OUTPUTS; i++) {
         MeTensor output = NULL;
-        s = MeProgram_GetOutput(prog, i, &output);
+        s               = MeProgram_GetOutput(prog, i, &output);
         if (s != ME_STATUS_OK) {
-            fprintf(stderr, "[harness] MeProgram_GetOutput(%u): %s\n", i,
-                    MeStatus_String(s));
+            fprintf(stderr, "[harness] MeProgram_GetOutput(%u): %s\n", i, MeStatus_String(s));
             goto fail;
         }
 

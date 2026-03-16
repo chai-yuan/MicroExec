@@ -1,6 +1,6 @@
 CXX := g++
-CXXFLAGS := -std=c++17 -Wall -Wextra -MMD -MP
-LDFLAGS := -lprotobuf
+CXXFLAGS := -std=c++17 -Wall -Wextra -MMD -MP -DUSE_ONNX_SHAPE_INFERENCE -DONNX_ML -DONNX_NAMESPACE=onnx
+LDFLAGS := -lprotobuf -lonnx -lonnx_proto
 
 SRC_DIR := .
 BUILD_DIR := build
@@ -56,12 +56,6 @@ $(TARGET): $(OBJS)
 PROTO_FILE := $(FRONTEND_DIR)/onnx.proto
 PROTO_HDR := $(FRONTEND_DIR)/onnx.pb.h
 PROTO_SRC := $(FRONTEND_DIR)/onnx.pb.cc
-
-# Initialize: generate protobuf files
-init:
-	@echo "$(COLOR_CYAN)[INIT]$(COLOR_RESET) Generating protobuf files..."
-	@cd $(FRONTEND_DIR) && protoc --cpp_out=. onnx.proto
-	@echo "$(COLOR_GREEN)[SUCCESS]$(COLOR_RESET) Protobuf files generated."
 
 clean:
 	@echo "$(COLOR_YELLOW)[CLEAN]$(COLOR_RESET) Removing build artifacts..."

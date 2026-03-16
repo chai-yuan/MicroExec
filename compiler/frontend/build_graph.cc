@@ -2,7 +2,9 @@
 
 #include "common/log.h"
 #include "graph/graph.h"
-#include "onnx.pb.h"
+
+#include "onnx/onnx_pb.h"
+#include "onnx/shape_inference/implementation.h"
 
 #include <cstring>
 #include <unordered_map>
@@ -163,6 +165,9 @@ int Graph::BuildFromONNX(const std::string &file_name) {
     }
     input.close();
 
+    onnx::shape_inference::InferShapes(model);
+    LOG_INFO("ONNX 内置 Shape Inference 完成");
+
     const onnx::GraphProto &onnx_graph = model.graph();
 
     // 符号表：映射张量名字到 Edge 指针
@@ -283,6 +288,17 @@ int Graph::BuildFromONNX(const std::string &file_name) {
         if (edge_symbol_table.find(value_info.name()) != edge_symbol_table.end()) {
             Edge *edge = edge_symbol_table[value_info.name()];
             MergeShapeAndType(value_info, edge, default_max_dynamic_size_);
+        }
+    }
+
+    // 补充缺失的 dtype：从 producer 的第一个输入传播
+    for (Edge *edge : edges) {
+        if (!edge->has_dtype && edge->producer != nullptr && !edge->producer->input_edges.empty()) {
+            Edge *in0 = edge->producer->input_edges[0];
+            if (in0->has_dtype) {
+                edge->dtype     = in0->dtype;
+                edge->has_dtype = true;
+            }
         }
     }
 
